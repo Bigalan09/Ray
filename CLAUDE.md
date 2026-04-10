@@ -88,6 +88,8 @@ YAML in `config/`:
 - `USER.md` -- User profile and preferences (formerly ME.md)
 - `BOOTSTRAP.md` -- First-run onboarding template
 
+The default OpenAI model is set in `config/models.yaml`. The current repo default is `gpt-5-nano`.
+
 Workspace/runtime:
 - `workspace/mcp_servers.json` -- MCP server configuration
 - `workspace/IDENTITY.md` -- Ray's self-identity (created during bootstrap)

@@ -128,6 +128,11 @@ def _convert_tools(tools: list[dict] | None) -> list[dict]:
     return converted
 
 
+def _supports_temperature(model: str) -> bool:
+    """Return whether the configured model accepts the temperature parameter."""
+    return model != "gpt-5-nano"
+
+
 def build_request_kwargs(
     messages: list[dict],
     model: str,
@@ -144,7 +149,7 @@ def build_request_kwargs(
     }
     if instructions:
         kwargs["instructions"] = instructions
-    if temperature is not None:
+    if temperature is not None and _supports_temperature(model):
         kwargs["temperature"] = temperature
 
     converted_tools = _convert_tools(tools)

@@ -180,6 +180,8 @@ Copy `.env.example` to `.env` and fill in:
 - `OPENAI_API_KEY`
 - `OPENAI_BASE_URL` only if you are routing through an OpenAI-compatible gateway
 
+The default model is configured in [config/models.yaml](/Users/alan/Development/Ray/config/models.yaml). Ray now defaults to `gpt-5-nano`.
+
 ## Security
 
 - **API key**: `POST /api/auth/generate-key` creates a key. Pass as `X-API-Key` header. Auth disabled until a key is generated.

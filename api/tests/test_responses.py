@@ -163,3 +163,16 @@ def test_get_client_uses_openai_base_url_override():
     finally:
         module._client = original_client
         settings.openai_base_url = original_base_url
+
+
+def test_build_request_kwargs_omits_temperature_for_gpt_5_nano():
+    """gpt-5-nano rejects the temperature parameter on Responses requests."""
+    from llm.responses import build_request_kwargs
+
+    kwargs = build_request_kwargs(
+        messages=[{"role": "user", "content": "Hello"}],
+        model="gpt-5-nano",
+        temperature=0.7,
+    )
+
+    assert "temperature" not in kwargs

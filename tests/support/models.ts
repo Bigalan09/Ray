@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "fs";
 
 export function loadDefaultModel(
   configFile: string,
-  fallbackModel = "gpt-5.4-mini",
+  fallbackModel = "gpt-5-nano",
 ): string {
   if (!existsSync(configFile)) {
     return fallbackModel;

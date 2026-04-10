@@ -6,9 +6,9 @@ from llm.providers import (
 
 
 def test_resolve_openai_model():
-    provider, model_id = resolve_model_provider("gpt-5.4-mini")
+    provider, model_id = resolve_model_provider("gpt-5-nano")
     assert isinstance(provider, OpenAIResponsesProvider)
-    assert model_id == "gpt-5.4-mini"
+    assert model_id == "gpt-5-nano"
 
 
 def test_resolve_unknown_model_falls_back_to_openai():
@@ -21,7 +21,7 @@ def test_openai_provider_builds_url():
         api_key="test",
         base_url="https://api.openai.com/v1",
     )
-    url = provider.build_url("gpt-5.4-mini")
+    url = provider.build_url("gpt-5-nano")
     assert url == "https://api.openai.com/v1/responses"
 
 
