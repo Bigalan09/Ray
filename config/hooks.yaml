@@ -1,0 +1,38 @@
+# Hook configuration for Ray.
+# Webhooks receive HTTP POST callbacks when events fire.
+# Pre/post hooks run before/after commands and tool calls.
+#
+# Runtime webhooks managed via the UI or /hook command are stored
+# in workspace/hooks/ as individual YAML files.
+#
+# Supported events:
+#   message_received, command_executed, tool_executing, tool_executed,
+#   response_persisted, exec_approved, exec_denied, task_started,
+#   task_completed, task_failed, session_created, session_deleted
+
+webhooks: []
+  # Example:
+  # - name: slack-notify
+  #   url: "https://hooks.slack.com/services/XXX"
+  #   events: [task_completed, task_failed]
+  #   method: POST
+  #   headers: {}
+  #   secret: "${WEBHOOK_SIGNING_SECRET}"
+  #   enabled: true
+  #   retry:
+  #     max_attempts: 3
+  #     backoff_ms: 1000
+
+pre_hooks: []
+  # Example: audit file writes before they happen
+  # - trigger: "tool:write_file"
+  #   handler: webhook
+  #   config:
+  #     url: "https://audit.example.com/file-write"
+
+post_hooks: []
+  # Example: log all command executions
+  # - trigger: "command:*"
+  #   handler: log
+  #   config:
+  #     path: "/workspace/hooks.log"

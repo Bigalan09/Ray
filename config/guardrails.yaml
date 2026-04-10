@@ -1,0 +1,71 @@
+# Guardrails: file access control for Ray's workspace
+# Defines read, write, and read/write permissions per path pattern.
+# Paths are relative to the workspace root.
+
+workspace:
+  # Default access for all files in workspace
+  default: read_write
+
+  # Per-path overrides (matched top-down, first match wins)
+  rules:
+    # Identity files: read/write (agent can update during bootstrap and normal use)
+    - path: "IDENTITY.md"
+      access: read_write
+
+    - path: "SOUL.md"
+      access: read_write
+
+    - path: "USER.md"
+      access: read_write
+
+    - path: "AGENTS.md"
+      access: read_write
+
+    # Memory: read/write (agent actively maintains)
+    - path: "memory/*"
+      access: read_write
+
+    - path: "MEMORY.md"
+      access: read_write
+
+    # Bootstrap: read/write (deleted after completion)
+    - path: "BOOTSTRAP.md"
+      access: read_write
+
+    # Skills directory: read only (managed by admin, not agent)
+    - path: "skills/*"
+      access: read
+
+# Command execution guardrails (allowlist-only)
+exec:
+  enabled: true
+  default_timeout: 30          # seconds
+  max_output_bytes: 65536      # 64 KB
+  working_directory: /workspace
+
+  # Only commands listed here can be executed. No entry = denied.
+  allow:
+    - command: git
+      args: ["status", "log", "diff", "branch", "show"]
+      description: "Git read-only operations"
+
+    - command: docker
+      args: ["ps", "images", "logs"]
+      description: "Docker inspection commands"
+
+    - command: npm
+      args: ["test", "run", "list"]
+      description: "NPM task runner"
+      timeout: 120
+
+    - command: whoami
+      args: "*"
+      description: "Current user"
+
+# Directories outside workspace
+external:
+  # /config is always read-only
+  config: read
+
+  # /data (databases) is not directly accessible via /file commands
+  data: deny

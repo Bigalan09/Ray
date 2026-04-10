@@ -1,0 +1,15 @@
+providers:
+  openai:
+    type: openai
+    # Credentials come from .env (OPENAI_API_KEY). OPENAI_BASE_URL is optional.
+    models:
+      - id: gpt-4o
+        name: GPT-4o
+      - id: gpt-4.1
+        name: GPT-4.1
+      - id: gpt-4.1-mini
+        name: GPT-4.1 mini
+
+# The default model used when none is selected.
+# Must match a model id above.
+default_model: gpt-4o

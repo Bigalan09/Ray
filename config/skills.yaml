@@ -1,0 +1,25 @@
+skills:
+  - name: summarise
+    description: Summarise a document or text
+    prompt: "Please summarise the following concisely:\n\n{input}"
+    agent: general
+
+  - name: review
+    description: Code review for bugs, style, and improvements
+    prompt: "Review the following code for bugs, style issues, and potential improvements. Be specific and actionable:\n\n{input}"
+    agent: coder
+
+  - name: explain
+    description: Explain a concept or piece of code
+    prompt: "Explain the following clearly and concisely, as if to a colleague who is unfamiliar with it:\n\n{input}"
+    agent: general
+
+  - name: draft
+    description: Draft an email or document
+    prompt: "Draft the following in a professional but friendly tone:\n\n{input}"
+    agent: writer
+
+  - name: research
+    description: Research a topic and summarise findings
+    prompt: "Research the following topic. Provide key facts, recent developments, and useful links:\n\n{input}"
+    agent: researcher

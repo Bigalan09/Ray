@@ -1,0 +1,158 @@
+tools:
+  - name: calculator
+    description: >
+      Evaluate mathematical expressions. Supports basic arithmetic
+      (+, -, *, /, %), parentheses, and decimal numbers.
+    parameters:
+      type: object
+      properties:
+        expression:
+          type: string
+          description: "The mathematical expression to evaluate (e.g. 2 + 2)"
+      required:
+        - expression
+    enabled: true
+
+  - name: get_current_time
+    description: Get the current date and time. Can optionally specify a timezone.
+    parameters:
+      type: object
+      properties:
+        timezone:
+          type: string
+          description: "Optional timezone (e.g. Europe/London, America/New_York)"
+    enabled: true
+
+  - name: memory_search
+    description: >
+      Search your memory for relevant past context, facts, or preferences
+      you have stored. Use this to recall information from previous conversations.
+    parameters:
+      type: object
+      properties:
+        query:
+          type: string
+          description: What to search for in memory
+        limit:
+          type: number
+          description: Maximum results to return (default 5)
+      required:
+        - query
+    enabled: true
+
+  - name: memory_store
+    description: >
+      Store an important fact, preference, or piece of information in memory
+      so it can be recalled in future conversations.
+    parameters:
+      type: object
+      properties:
+        content:
+          type: string
+          description: The information to remember
+        tags:
+          type: array
+          description: Optional tags for categorisation
+          items:
+            type: string
+      required:
+        - content
+    enabled: true
+
+  - name: update_user_profile
+    description: >
+      Update the user's profile (USER.md) with a new observation about their
+      preferences, workflow, or context. Call this when you learn something
+      durable about the user that should persist across all future conversations.
+      Do not store ephemeral facts here. Only store lasting preferences.
+    parameters:
+      type: object
+      properties:
+        observation:
+          type: string
+          description: The observation to add (e.g. "Prefers TypeScript over JavaScript")
+        section:
+          type: string
+          description: "Which section to add to (e.g. Communication Style, Work Context, Notes)"
+      required:
+        - observation
+    enabled: true
+
+  - name: document_search
+    description: >
+      Search through uploaded documents for relevant information.
+      Use this when the user asks about content from files they have
+      uploaded or when you need to find specific information from
+      ingested documents. Returns matching text chunks with source citations.
+    parameters:
+      type: object
+      properties:
+        query:
+          type: string
+          description: What to search for in the document collection
+        limit:
+          type: number
+          description: Maximum results to return (default 5)
+      required:
+        - query
+    enabled: true
+
+  - name: write_file
+    description: >
+      Write content to a file in the workspace. Use this to create new files
+      or overwrite existing ones. Files are scoped to the /workspace directory.
+    parameters:
+      type: object
+      properties:
+        filename:
+          type: string
+          description: "Path relative to workspace (e.g. notes/todo.md)"
+        content:
+          type: string
+          description: The full content to write to the file
+      required:
+        - filename
+        - content
+    enabled: true
+
+  - name: read_file
+    description: >
+      Read the contents of a file from the workspace. Use this to check
+      what is already in a file before updating it, or to retrieve saved content.
+    parameters:
+      type: object
+      properties:
+        filename:
+          type: string
+          description: "Path relative to workspace (e.g. notes/todo.md)"
+      required:
+        - filename
+    enabled: true
+
+  - name: list_files
+    description: >
+      List files and directories in the workspace. Use this to see what
+      files exist before reading or writing.
+    parameters:
+      type: object
+      properties:
+        directory:
+          type: string
+          description: "Directory relative to workspace (default: root)"
+    enabled: true
+
+  - name: exec_command
+    description: >
+      Execute a system command. Only commands explicitly allowed by the
+      exec guardrails in guardrails.yaml can run. All commands require
+      user approval before execution. Use /exec list to see what is
+      permitted.
+    parameters:
+      type: object
+      properties:
+        command:
+          type: string
+          description: "The full command to execute (e.g. 'git status', 'npm test')"
+      required:
+        - command
+    enabled: true

@@ -1,0 +1,23 @@
+app:
+  name: Ray
+  version: 0.1.0
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+
+ui:
+  host: "0.0.0.0"
+  port: 3000
+
+security:
+  bind_host: "127.0.0.1"
+  allowed_origins:
+    - "http://localhost:3000"
+    - "http://127.0.0.1:3000"
+
+streaming:
+  max_retries: 3
+  base_delay_ms: 1000
+  # Allow self-signed certs (Azure internal endpoints)
+  tls_verify: false

@@ -1,0 +1,40 @@
+# Environment
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+.venv/
+venv/
+.pytest_cache/
+
+# Node/Bun
+node_modules/
+ui/dist/
+bun.lock
+
+# Workspace (Ray's personal state, not part of the repo)
+workspace/
+workspace-backup*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Test
+test-results/
+playwright-report/
+api/tests/test_data/

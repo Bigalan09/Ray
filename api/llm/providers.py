@@ -1,0 +1,344 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import queue
+from abc import ABC, abstractmethod
+from typing import AsyncIterator
+
+import httpx
+from openai import APIConnectionError, APIStatusError, APITimeoutError
+
+from config import settings, load_yaml
+from llm.responses import DEFAULT_OPENAI_BASE_URL, _get_client, build_request_kwargs
+
+
+class RetryableStreamError(Exception):
+    """Raised when a streaming call fails with a retryable status (429, 5xx)."""
+
+    def __init__(self, status: int, message: str, retry_after: str | None = None):
+        self.status = status
+        self.message = message
+        self.retry_after = retry_after
+        super().__init__(f"HTTP {status}: {message}")
+
+
+class LLMProvider(ABC):
+    """Base class for LLM providers."""
+
+    @abstractmethod
+    async def stream_chat(
+        self,
+        messages: list[dict],
+        temperature: float,
+        tools: list[dict] | None = None,
+    ) -> AsyncIterator[str]:
+        """Stream chat completion as raw SSE lines (data: ...)."""
+        ...
+
+    @abstractmethod
+    def build_url(self, model: str) -> str:
+        ...
+
+
+class OpenAIResponsesProvider(LLMProvider):
+    """OpenAI Responses API provider."""
+
+    def __init__(self, api_key: str, base_url: str = DEFAULT_OPENAI_BASE_URL):
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/")
+
+    def build_url(self, model: str) -> str:
+        return f"{self.base_url}/responses"
+
+    async def stream_chat(
+        self,
+        messages: list[dict],
+        temperature: float,
+        tools: list[dict] | None = None,
+        model: str = "gpt-4.1",
+    ) -> AsyncIterator[str]:
+        client = _get_client()
+        request_kwargs = build_request_kwargs(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            tools=tools,
+            stream=True,
+        )
+        event_queue: queue.Queue = queue.Queue()
+
+        def _stream(q: queue.Queue) -> None:
+            try:
+                stream = client.responses.create(**request_kwargs)
+                for event in stream:
+                    q.put(event)
+            except Exception as exc:
+                q.put(exc)
+            finally:
+                q.put(None)
+
+        asyncio.get_running_loop().run_in_executor(None, _stream, event_queue)
+
+        while True:
+            event = await asyncio.to_thread(event_queue.get)
+            if event is None:
+                break
+
+            if isinstance(event, APIStatusError):
+                retry_after = None
+                response = getattr(event, "response", None)
+                if response is not None:
+                    retry_after = response.headers.get("retry-after")
+                if event.status_code == 429 or 500 <= event.status_code < 600:
+                    raise RetryableStreamError(
+                        status=event.status_code,
+                        message=str(event),
+                        retry_after=retry_after,
+                    )
+                yield f'data: {json.dumps({"error": "API Error", "message": str(event), "status": event.status_code})}'
+                return
+
+            if isinstance(event, (APIConnectionError, APITimeoutError)):
+                raise RetryableStreamError(status=503, message=str(event))
+
+            if isinstance(event, Exception):
+                yield f'data: {json.dumps({"error": "API Error", "message": str(event)})}'
+                return
+
+            event_type = getattr(event, "type", "")
+
+            if event_type == "response.output_text.delta":
+                chunk = {
+                    "choices": [{
+                        "delta": {"content": event.delta},
+                        "index": 0,
+                    }]
+                }
+                yield f"data: {json.dumps(chunk)}"
+
+            elif event_type == "response.output_item.added":
+                item = getattr(event, "item", None)
+                if getattr(item, "type", None) != "function_call":
+                    continue
+                tool_call = {
+                    "index": getattr(event, "output_index", 0),
+                    "id": getattr(item, "call_id", "") or getattr(item, "id", ""),
+                    "type": "function",
+                    "function": {"name": getattr(item, "name", "")},
+                }
+                chunk = {
+                    "choices": [{
+                        "delta": {"tool_calls": [tool_call]},
+                        "index": 0,
+                    }]
+                }
+                yield f"data: {json.dumps(chunk)}"
+
+            elif event_type == "response.function_call_arguments.delta":
+                tool_call = {
+                    "index": getattr(event, "output_index", 0),
+                    "function": {"arguments": getattr(event, "delta", "")},
+                }
+                chunk = {
+                    "choices": [{
+                        "delta": {"tool_calls": [tool_call]},
+                        "index": 0,
+                    }]
+                }
+                yield f"data: {json.dumps(chunk)}"
+
+            elif event_type == "error":
+                message = getattr(event, "message", "Unknown API error")
+                yield f'data: {json.dumps({"error": "API Error", "message": message})}'
+                return
+
+            elif event_type == "response.completed":
+                response = getattr(event, "response", None)
+                usage_data = {}
+                usage = getattr(response, "usage", None)
+                if usage is not None:
+                    usage_data = {
+                        "prompt_tokens": getattr(usage, "input_tokens", 0),
+                        "completion_tokens": getattr(usage, "output_tokens", 0),
+                        "total_tokens": getattr(usage, "total_tokens", 0),
+                    }
+
+                finish_reason = "stop"
+                for item in getattr(response, "output", []) or []:
+                    if getattr(item, "type", None) == "function_call":
+                        finish_reason = "tool_calls"
+                        break
+
+                chunk_data: dict = {
+                    "choices": [{"delta": {}, "index": 0, "finish_reason": finish_reason}],
+                }
+                if usage_data:
+                    chunk_data["usage"] = usage_data
+                yield f"data: {json.dumps(chunk_data)}"
+
+        yield "data: [DONE]"
+
+
+class AzureOpenAIProvider(LLMProvider):
+    """Azure OpenAI provider."""
+
+    def __init__(self, endpoint: str, api_key: str, api_version: str):
+        self.endpoint = endpoint.rstrip("/")
+        self.api_key = api_key
+        self.api_version = api_version
+
+    def build_url(self, model: str) -> str:
+        return f"{self.endpoint}/openai/deployments/{model}/chat/completions?api-version={self.api_version}"
+
+    async def stream_chat(
+        self,
+        messages: list[dict],
+        temperature: float,
+        tools: list[dict] | None = None,
+        model: str = "gpt-4.1",
+    ) -> AsyncIterator[str]:
+        url = self.build_url(model)
+        headers = {
+            "Content-Type": "application/json",
+            "api-key": self.api_key,
+        }
+        body: dict = {
+            "messages": messages,
+            "stream": True,
+            "temperature": temperature,
+            "stream_options": {"include_usage": True},
+        }
+        if tools:
+            body["tools"] = tools
+            body["tool_choice"] = "auto"
+
+        async with httpx.AsyncClient(verify=settings.tls_verify) as client:
+            async with client.stream("POST", url, json=body, headers=headers, timeout=120) as resp:
+                if resp.status_code != 200:
+                    error_text = (await resp.aread()).decode()[:500]
+                    if resp.status_code == 429 or 500 <= resp.status_code < 600:
+                        raise RetryableStreamError(
+                            status=resp.status_code,
+                            message=error_text,
+                            retry_after=resp.headers.get("retry-after"),
+                        )
+                    yield f'data: {json.dumps({"error": "API Error", "message": error_text, "status": resp.status_code})}'
+                    return
+
+                async for line in resp.aiter_lines():
+                    if line.startswith("data: "):
+                        yield line
+
+
+class OllamaProvider(LLMProvider):
+    """Ollama local model provider. Converts to OpenAI SSE format."""
+
+    def __init__(self, base_url: str = "http://ray-ollama:11434"):
+        self.base_url = base_url.rstrip("/")
+
+    def build_url(self, model: str) -> str:
+        return f"{self.base_url}/api/chat"
+
+    async def stream_chat(
+        self,
+        messages: list[dict],
+        temperature: float,
+        tools: list[dict] | None = None,
+        model: str = "llama3",
+    ) -> AsyncIterator[str]:
+        url = self.build_url(model)
+        body = {
+            "model": model,
+            "messages": messages,
+            "stream": True,
+            "options": {"temperature": temperature},
+        }
+
+        async with httpx.AsyncClient() as client:
+            async with client.stream("POST", url, json=body, timeout=300) as resp:
+                if resp.status_code != 200:
+                    error_text = await resp.aread()
+                    yield f'data: {json.dumps({"error": "Ollama Error", "message": error_text.decode()[:500]})}'
+                    return
+
+                async for line in resp.aiter_lines():
+                    if not line.strip():
+                        continue
+                    try:
+                        event = json.loads(line)
+                        content = event.get("message", {}).get("content", "")
+                        if content:
+                            openai_chunk = {
+                                "choices": [{
+                                    "delta": {"content": content},
+                                    "index": 0,
+                                }]
+                            }
+                            yield f"data: {json.dumps(openai_chunk)}"
+
+                        if event.get("done"):
+                            # Include usage if available
+                            if "eval_count" in event:
+                                openai_chunk = {
+                                    "choices": [{"delta": {}, "index": 0, "finish_reason": "stop"}],
+                                    "usage": {
+                                        "prompt_tokens": event.get("prompt_eval_count", 0),
+                                        "completion_tokens": event.get("eval_count", 0),
+                                        "total_tokens": event.get("prompt_eval_count", 0) + event.get("eval_count", 0),
+                                    },
+                                }
+                                yield f"data: {json.dumps(openai_chunk)}"
+                            yield "data: [DONE]"
+                            return
+                    except json.JSONDecodeError:
+                        pass
+
+
+def get_provider(provider_type: str, config: dict) -> LLMProvider:
+    """Create an LLM provider from config."""
+    if provider_type == "openai":
+        return OpenAIResponsesProvider(
+            api_key=config.get("api_key", settings.openai_api_key),
+            base_url=config.get("base_url", settings.openai_base_url),
+        )
+    elif provider_type == "azure_openai":
+        return AzureOpenAIProvider(
+            endpoint=config.get("endpoint", settings.azure_openai_endpoint),
+            api_key=config.get("api_key", settings.azure_openai_api_key),
+            api_version=config.get("api_version", settings.azure_openai_api_version),
+        )
+    elif provider_type == "ollama":
+        return OllamaProvider(base_url=config.get("base_url", "http://ray-ollama:11434"))
+    else:
+        raise ValueError(f"Unknown provider type: {provider_type}")
+
+
+def resolve_model_provider(model_id: str) -> tuple[LLMProvider, str]:
+    """Given a model ID, find its provider and return (provider, model_id)."""
+    models_config = load_yaml("models.yaml")
+    providers = models_config.get("providers", {})
+
+    for provider_name, provider_config in providers.items():
+        provider_type = provider_config.get("type", "")
+
+        if provider_type == "openai":
+            for configured_model in provider_config.get("models", []):
+                if configured_model["id"] == model_id:
+                    return get_provider(provider_type, provider_config), model_id
+
+        elif provider_type == "azure_openai":
+            for dep in provider_config.get("deployments", []):
+                if dep["id"] == model_id:
+                    return get_provider(provider_type, provider_config), model_id
+
+        elif provider_type == "ollama":
+            for m in provider_config.get("models", []):
+                if m["id"] == model_id:
+                    return get_provider(provider_type, provider_config), model_id
+
+    # Fallback to the primary OpenAI provider
+    return OpenAIResponsesProvider(
+        api_key=settings.openai_api_key,
+        base_url=settings.openai_base_url,
+    ), model_id

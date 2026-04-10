@@ -1,0 +1,19 @@
+schedules:
+  # Example: daily news summary at 8am
+  # - name: morning_briefing
+  #   cron: "0 8 * * *"
+  #   agent: researcher
+  #   prompt: >
+  #     Search for the top 5 technology and AI news stories from today.
+  #     Summarise each in 2-3 sentences. Store the summary in memory.
+  #   enabled: true
+
+  # Example: weekly project status check
+  # - name: weekly_review
+  #   cron: "0 17 * * 5"
+  #   agent: general
+  #   prompt: >
+  #     Review my recent conversation history and memory.
+  #     Create a summary of what was worked on this week,
+  #     key decisions made, and any open questions.
+  #   enabled: true
