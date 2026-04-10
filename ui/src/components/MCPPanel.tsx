@@ -51,7 +51,7 @@ export function MCPPanel({ visible, onClose }: MCPPanelProps) {
             <div className="text-gray-500 text-sm p-4 text-center">
               No MCP servers configured.
               <br />
-              <span className="text-xs">Edit data/mcp_servers.json to add servers.</span>
+              <span className="text-xs">Edit workspace/mcp_servers.json to add servers.</span>
             </div>
           )}
           {servers.map((server) => (

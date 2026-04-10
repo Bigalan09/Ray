@@ -5,13 +5,14 @@
  * then uses an LLM to generate contextual replies and chat through the
  * full onboarding flow. Run with:
  *
- *   cd tests && npx playwright test bootstrap-interactive --headed
+ *   RAY_RUN_BOOTSTRAP_INTERACTIVE=1 cd tests && npx playwright test bootstrap-interactive --headed
  *
  * Reads OpenAI credentials from ../.env automatically.
  */
 import { test, expect, type Page } from "@playwright/test";
-import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
+import { loadPreferredEnv } from "../support/env";
+import { loadDefaultModel } from "../support/models";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -21,25 +22,14 @@ const MAX_TURNS = 12;
 const TURN_TIMEOUT = 45_000; // max wait for Ray to respond per turn
 const SLOW_TYPE_DELAY = 30; // ms per character (so you can watch)
 
-// Load .env from repo root
-const ENV: Record<string, string> = {};
-const envFile = resolve(__dirname, "../../.env");
-if (existsSync(envFile)) {
-  for (const line of readFileSync(envFile, "utf-8").split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq === -1) continue;
-    const key = trimmed.slice(0, eq).trim();
-    let val = trimmed.slice(eq + 1).trim();
-    if (
-      (val.startsWith('"') && val.endsWith('"')) ||
-      (val.startsWith("'") && val.endsWith("'"))
-    )
-      val = val.slice(1, -1);
-    ENV[key] = val;
-  }
-}
+const ENV = loadPreferredEnv(
+  resolve(__dirname, "../.env"),
+  resolve(__dirname, "../../.env"),
+);
+const DEFAULT_MODEL = loadDefaultModel(resolve(__dirname, "../../config/models.yaml"));
+const RUN_INTERACTIVE_BOOTSTRAP =
+  ENV.RAY_RUN_BOOTSTRAP_INTERACTIVE === "1" ||
+  process.env.RAY_RUN_BOOTSTRAP_INTERACTIVE === "1";
 
 // ---------------------------------------------------------------------------
 // LLM caller
@@ -72,7 +62,7 @@ async function callLLM(messages: ChatMsg[]): Promise<string> {
   // Try OpenAI first
   const openaiBaseUrl = (ENV.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
   const openaiKey = ENV.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-  const model = ENV.OPENAI_MODEL || "gpt-4o";
+  const model = DEFAULT_MODEL;
 
   if (openaiKey && !openaiKey.startsWith("your-")) {
     const url = `${openaiBaseUrl}/responses`;
@@ -159,6 +149,10 @@ async function waitForResponse(page: Page): Promise<void> {
 
 test.describe("Interactive bootstrap", () => {
   test("LLM-driven bootstrap conversation", async ({ page }) => {
+    test.skip(
+      !RUN_INTERACTIVE_BOOTSTRAP,
+      "Set RAY_RUN_BOOTSTRAP_INTERACTIVE=1 to run this live bootstrap test.",
+    );
     test.setTimeout(5 * 60_000); // 5 minutes
 
     console.log("\n--- Starting interactive bootstrap test ---\n");

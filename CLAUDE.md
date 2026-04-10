@@ -45,20 +45,36 @@ cd api && uvicorn main:app --reload --port 8000
 cd ui && API_URL=http://localhost:8000 bun run dev
 ```
 
+Install dependencies before local development:
+
+```bash
+cd api && python -m pip install -r requirements.txt
+cd ui && bun install
+cd tests && npm install
+```
+
 ## Testing
 
 ```bash
 # All API tests (includes unit, integration, and optional live OpenAI tests)
 cd api && python -m pytest tests/ -v
 
+# Repo-level Playwright shortcuts
+npm run test:e2e
+npm run test:e2e:api
+
 # Single test
 python -m pytest tests/test_tools.py::test_calculator_tool_works -v
 
 # E2E (Playwright)
 cd tests && npx playwright test
+
+# Manual live bootstrap flow only
+cd tests && RAY_RUN_BOOTSTRAP_INTERACTIVE=1 npx playwright test e2e/bootstrap-interactive.spec.ts --headed
 ```
 
 Live integration tests in `test_integration.py` hit the real OpenAI Responses API. They auto-skip if `OPENAI_API_KEY` is not set.
+`bootstrap-interactive.spec.ts` is also opt-in and stays out of the default Playwright run unless `RAY_RUN_BOOTSTRAP_INTERACTIVE=1` is set.
 
 ## Configuration
 
@@ -72,43 +88,27 @@ YAML in `config/`:
 - `USER.md` -- User profile and preferences (formerly ME.md)
 - `BOOTSTRAP.md` -- First-run onboarding template
 
-Data:
-- `data/mcp_servers.json` -- MCP server configuration
-- `data/IDENTITY.md` -- Ray's self-identity (created during bootstrap)
-- `data/memory.md` -- Agent session memory (auto-maintained, loaded into system prompt)
+Workspace/runtime:
+- `workspace/mcp_servers.json` -- MCP server configuration
+- `workspace/IDENTITY.md` -- Ray's self-identity (created during bootstrap)
+- `workspace/MEMORY.md` -- Curated memory
+- `workspace/api_key` -- Generated API key when auth is enabled
+- `workspace/*.db` -- Runtime databases
+- `workspace-template/` -- Seed files copied into `workspace/` on first run
 
 ## Identity System
 
-`config/SOUL.md` defines Ray's personality and principles. `workspace/USER.md` describes the user. `data/memory.md` stores session notes. All three are prepended to every agent's system prompt automatically.
+`workspace/SOUL.md` defines Ray's personality and principles. `workspace/USER.md` describes the user. `workspace/MEMORY.md` stores curated notes. These workspace files are prepended to the system prompt automatically.
 
 ## Slash Commands
 
-Type `/` in the chat input to see available commands. Commands are detected before LLM routing:
-
-- `/help` -- List all commands
-- `/new` -- Start a new session
-- `/clear` -- Clear the current session
-- `/compact` -- Summarise conversation to save tokens
-- `/status` -- System status (MCP, tasks, scheduler)
-- `/tool [name] [json]` -- Execute a tool or list tools
-- `/task [prompt]` -- Create a background task
-- `/task status [id]` -- Check task status
-- `/task cancel [id]` -- Cancel a task
-- `/schedule [cron] [prompt]` -- Create a scheduled task (supports natural language, e.g. "daily at 8:30am on weekdays")
-- `/schedule list` -- List scheduled tasks
-- `/schedule remove [name]` -- Remove a schedule
-- `/file read|write|list|search <path>` -- Workspace file operations
-- `/skill [name] [input]` -- Run a saved prompt template
-- `/exec <command>` -- Execute a guardrailed system command (requires approval)
-- `/exec list` -- Show allowed commands
-- `/hook [list|add|remove|test|log|events|reload]` -- Manage webhooks
-- `/bootstrap done|reset|status` -- Manage first-run onboarding
+Type `/` in the chat input to see available commands. The canonical command list comes from `commands.registry.list_commands()` and is exposed at `GET /api/commands`.
 
 ### Adding a New Command
 
 1. Add an async handler in `api/commands/builtin.py` (or a new file)
 2. Call `register_command(name, handler, description, usage)` from `api/commands/registry.py`
-3. Import the module in `api/routers/commands.py` to trigger registration
+3. Add the module to `_COMMAND_MODULES` in `api/commands/__init__.py`
 
 ## Skills
 
@@ -136,9 +136,9 @@ Tasks broadcast status updates via WebSocket (`/ws`). The UI connects to this We
 
 ## Security
 
-- **API key auth**: `POST /api/auth/generate-key` creates a key stored in `data/api_key`. Pass as `X-API-Key` header. Auth is disabled until a key is generated.
+- **API key auth**: `POST /api/auth/generate-key` creates a key stored in `workspace/api_key`. Pass as `X-API-Key` header. Auth is disabled until a key is generated.
 - **Rate limiting**: 120 req/min, 20 burst per IP. Uses Redis when available, in-memory fallback.
-- **Audit logging**: Mutating requests logged to `data/audit.db` with sanitised bodies.
+- **Audit logging**: Mutating requests logged to `workspace/audit.db` with sanitised bodies.
 - **Middleware**: All three enforced via HTTP middleware in `main.py`. Public paths (`/health`, `/api/auth/*`) bypass auth.
 - All ports bound to 127.0.0.1.
 - Workspace file access scoped to `/workspace/` directory.
@@ -197,5 +197,6 @@ Backend: `api/hooks/engine.py` (core dispatcher), `api/hooks/models.py`, `api/ho
 - `api/tasks/` -- Background task store, runner, scheduler
 - `api/security/` -- Auth, rate limiting, audit
 - `ui/src/components/` -- React components (including CommandAutocomplete)
-- `config/` -- All YAML/MD configuration
-- `data/` -- Runtime data (databases, API key, memory)
+- `config/` -- YAML app configuration
+- `workspace/` -- Runtime state, identity, API key, MCP config, databases
+- `workspace-template/` -- Seed workspace files

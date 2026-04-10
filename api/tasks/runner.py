@@ -6,7 +6,7 @@ import os
 
 import httpx
 
-from config import settings, load_yaml
+from config import settings, load_yaml, get_default_model
 from agents.base import build_agent_context
 from agents.router import route_message
 from llm.providers import resolve_model_provider
@@ -56,7 +56,7 @@ async def run_agent_task(task_id: str) -> str:
         agent_name = task.get("agent", "general")
         agent_ctx = build_agent_context(agent_name)
         models_config = load_yaml("models.yaml")
-        default_model = models_config.get("default_model", "gpt-4o")
+        default_model = get_default_model(models_config)
         provider, model_id = resolve_model_provider(default_model)
 
         messages = [

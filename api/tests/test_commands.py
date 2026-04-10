@@ -28,7 +28,6 @@ def test_parse_command_case_insensitive():
 
 
 def test_list_commands():
-    import commands.builtin  # noqa: F401
     from commands.registry import list_commands
     cmds = list_commands()
     names = [c["name"] for c in cmds]
@@ -39,7 +38,6 @@ def test_list_commands():
 
 
 def test_execute_help():
-    import commands.builtin  # noqa: F401
     from commands.registry import execute_command
     result = asyncio.run(
         execute_command("help", "", {})
@@ -58,7 +56,6 @@ def test_execute_unknown_command():
 
 
 def test_execute_clear():
-    import commands.builtin  # noqa: F401
     from commands.registry import execute_command
     result = asyncio.run(
         execute_command("clear", "", {})
@@ -67,7 +64,6 @@ def test_execute_clear():
 
 
 def test_execute_bootstrap_status():
-    import commands.builtin  # noqa: F401
     from commands.registry import execute_command
     result = asyncio.run(
         execute_command("bootstrap", "status", {})

@@ -1,5 +1,15 @@
 {
-  "dependencies": {
-    "playwright": "^1.59.1"
+  "name": "ray",
+  "private": true,
+  "scripts": {
+    "test:e2e": "npm --prefix tests run test",
+    "test:e2e:api": "npm --prefix tests run test:api",
+    "test:e2e:headed": "npm --prefix tests run test:headed",
+    "test:e2e:bootstrap:live": "npm --prefix tests run test:bootstrap:live",
+    "ui:dev": "bun --cwd ui run dev",
+    "ui:build": "bun --cwd ui run build",
+    "docker:up": "docker compose up --build",
+    "docker:up:detached": "docker compose up --build -d",
+    "docker:down": "docker compose down"
   }
 }

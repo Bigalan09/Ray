@@ -1,8 +1,6 @@
 """Tests for /schedule command and scheduler additions."""
 import asyncio
 
-import commands.builtin  # noqa: F401
-
 
 def test_schedule_list():
     from commands.registry import execute_command
@@ -20,19 +18,6 @@ def test_compact_command_registered():
     from commands.registry import list_commands
     names = [c["name"] for c in list_commands()]
     assert "/compact" in names
-
-
-def test_local_actions_schedule_parsing():
-    from agents.local_actions import _try_create_schedule
-    # No markers - should return None
-    assert _try_create_schedule("Just a normal response") is None
-
-
-def test_local_actions_memory_detection():
-    from agents.local_actions import _wants_to_remember
-    assert _wants_to_remember("I'll remember that for next time") is True
-    assert _wants_to_remember("Hello, how are you?") is False
-    assert _wants_to_remember("Noted your preference for British English") is True
 
 
 def testis_valid_cron_accepts_good_expressions():

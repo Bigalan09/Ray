@@ -9,7 +9,7 @@ from typing import AsyncIterator
 import httpx
 from openai import APIConnectionError, APIStatusError, APITimeoutError
 
-from config import settings, load_yaml
+from config import settings, load_yaml, get_default_model
 from llm.responses import DEFAULT_OPENAI_BASE_URL, _get_client, build_request_kwargs
 
 
@@ -56,12 +56,13 @@ class OpenAIResponsesProvider(LLMProvider):
         messages: list[dict],
         temperature: float,
         tools: list[dict] | None = None,
-        model: str = "gpt-4.1",
+        model: str | None = None,
     ) -> AsyncIterator[str]:
+        resolved_model = model or get_default_model()
         client = _get_client()
         request_kwargs = build_request_kwargs(
             messages=messages,
-            model=model,
+            model=resolved_model,
             temperature=temperature,
             tools=tools,
             stream=True,
@@ -196,9 +197,10 @@ class AzureOpenAIProvider(LLMProvider):
         messages: list[dict],
         temperature: float,
         tools: list[dict] | None = None,
-        model: str = "gpt-4.1",
+        model: str | None = None,
     ) -> AsyncIterator[str]:
-        url = self.build_url(model)
+        resolved_model = model or get_default_model()
+        url = self.build_url(resolved_model)
         headers = {
             "Content-Type": "application/json",
             "api-key": self.api_key,

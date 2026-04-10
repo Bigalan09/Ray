@@ -223,12 +223,14 @@ def _capabilities_section(tools: list[dict] | None = None) -> str:
 
     # --- Slash commands ---
     try:
-        from commands.registry import COMMANDS
-        if COMMANDS:
+        from commands.registry import list_commands
+
+        commands = list_commands()
+        if commands:
             lines.append("\n### Slash Commands")
             lines.append("The user can type these directly (handled server-side, no LLM call):")
-            for cmd in COMMANDS.values():
-                lines.append(f"- **/{cmd.name}**: {cmd.description}")
+            for cmd in commands:
+                lines.append(f"- **{cmd['name']}**: {cmd['description']}")
     except Exception:
         log.debug("Failed to load commands for capabilities section", exc_info=True)
 

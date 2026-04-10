@@ -3,15 +3,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-# Import to trigger registration
-import commands.builtin  # noqa: F401
-import commands.file_ops  # noqa: F401
-import commands.skills  # noqa: F401
-import commands.exec_cmd  # noqa: F401
-import commands.hooks_cmd  # noqa: F401
+from commands import register_all_commands
 from commands.registry import list_commands, execute_command
 
 router = APIRouter()
+register_all_commands()
 
 
 @router.get("/commands")

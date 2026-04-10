@@ -12,4 +12,4 @@ def test_models_contain_default(client):
     resp = client.get("/api/models")
     data = resp.json()
     ids = [m["id"] for m in data]
-    assert "gpt-4.1" in ids
+    assert "gpt-5.4-mini" in ids

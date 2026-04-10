@@ -9,52 +9,8 @@
  * - Unhappy path: unknown tool returns error
  */
 import { test, expect } from "@playwright/test";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-interface SSEEvent {
-  ray_tool?: { name: string; status: string };
-  type?: string;
-  content?: string;
-  choices?: { delta: { content?: string }; index: number }[];
-  [key: string]: unknown;
-}
-
-function parseSSE(raw: string): SSEEvent[] {
-  const events: SSEEvent[] = [];
-  for (const line of raw.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("data: ")) continue;
-    const data = trimmed.slice(6);
-    if (data === "[DONE]") continue;
-    try {
-      events.push(JSON.parse(data));
-    } catch {}
-  }
-  return events;
-}
-
-/** Retry on 429 rate limit. */
-async function fetchRetry(
-  request: any,
-  method: "get" | "post",
-  url: string,
-  options?: Record<string, unknown>,
-  retries = 3,
-): Promise<any> {
-  for (let i = 0; i < retries; i++) {
-    const resp = options
-      ? await request[method](url, options)
-      : await request[method](url);
-    if (resp.status() !== 429) return resp;
-    await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
-  }
-  return options
-    ? await request[method](url, options)
-    : await request[method](url);
-}
+import { fetchWithRetry } from "../support/request";
+import { parseSSE, type SSEEvent } from "../support/sse";
 
 // ---------------------------------------------------------------------------
 // API-level tests: tool call SSE events
@@ -64,7 +20,7 @@ test.describe("Tool call SSE events (API)", () => {
   test("calculator tool via /tool command returns result (happy path)", async ({
     request,
   }) => {
-    const resp = await fetchRetry(request, "post", "/api/chat", {
+    const resp = await fetchWithRetry(request, "post", "/api/chat", {
       data: {
         messages: [
           { role: "user", content: '/tool calculator {"expression": "6 * 7"}' },
@@ -83,7 +39,7 @@ test.describe("Tool call SSE events (API)", () => {
   test("unknown tool via /tool command returns error (unhappy path)", async ({
     request,
   }) => {
-    const resp = await fetchRetry(request, "post", "/api/chat", {
+    const resp = await fetchWithRetry(request, "post", "/api/chat", {
       data: {
         messages: [
           { role: "user", content: "/tool nonexistent_tool {}" },
@@ -102,7 +58,7 @@ test.describe("Tool call SSE events (API)", () => {
   test("calculator tool via direct API returns result", async ({
     request,
   }) => {
-    const resp = await fetchRetry(request, "post", "/api/tools/execute", {
+    const resp = await fetchWithRetry(request, "post", "/api/tools/execute", {
       data: { tool_name: "calculator", arguments: { expression: "2 + 2" } },
     });
     expect(resp.ok()).toBeTruthy();
@@ -112,7 +68,7 @@ test.describe("Tool call SSE events (API)", () => {
   });
 
   test("unknown tool via direct API returns error", async ({ request }) => {
-    const resp = await fetchRetry(request, "post", "/api/tools/execute", {
+    const resp = await fetchWithRetry(request, "post", "/api/tools/execute", {
       data: { tool_name: "does_not_exist", arguments: {} },
     });
     const data = await resp.json();
@@ -120,7 +76,7 @@ test.describe("Tool call SSE events (API)", () => {
   });
 
   test("invalid expression returns calculator error", async ({ request }) => {
-    const resp = await fetchRetry(request, "post", "/api/tools/execute", {
+    const resp = await fetchWithRetry(request, "post", "/api/tools/execute", {
       data: { tool_name: "calculator", arguments: { expression: "import os" } },
     });
     const data = await resp.json();

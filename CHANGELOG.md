@@ -19,6 +19,12 @@ All notable changes to Ray are documented here.
 ### Changed
 - **Tool SSE events enriched**: `ray_tool` events now include `arguments` (on "running") and `result` (on "success"/"error"), truncated to 2KB for the SSE stream.
 - **Chat routing simplified**: Removed the Azure AI Foundry `agent_reference` branch. Chat and background tasks now run through the configured provider with one local tool-calling path.
+- **Slash command registration**: Commands now register through an explicit `register_all_commands()` entry point instead of router import side effects.
+- **Playwright support code**: Shared env loading, SSE parsing, and retry helpers now live under `tests/support/` instead of being duplicated across specs and configs.
+- **Repo entrypoints and docs**: Root `package.json` now provides the canonical Playwright and UI shortcuts, and current docs consistently point at `workspace/` for runtime state.
+
+### Removed
+- **Dead local action bridge**: Removed the obsolete marker-based local action module that was no longer used by the runtime tool-calling path.
 
 ## 2026-04-08
 
