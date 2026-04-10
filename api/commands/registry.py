@@ -26,6 +26,13 @@ class CommandDef:
 COMMANDS: dict[str, CommandDef] = {}
 
 
+def ensure_commands_registered() -> None:
+    """Load built-in commands on demand."""
+    from commands import register_all_commands
+
+    register_all_commands()
+
+
 def register_command(
     name: str,
     handler: Callable[..., Awaitable[dict]],
@@ -46,6 +53,7 @@ def parse_command(message: str) -> tuple[str, str] | None:
 
 async def execute_command(name: str, args_str: str, context: dict | None = None) -> dict:
     """Execute a registered command. Returns a result dict."""
+    ensure_commands_registered()
     cmd = COMMANDS.get(name)
     if not cmd:
         return {
@@ -86,6 +94,7 @@ async def execute_command(name: str, args_str: str, context: dict | None = None)
 
 def list_commands() -> list[dict]:
     """Return all registered commands for API/autocomplete."""
+    ensure_commands_registered()
     return [
         {"name": f"/{c.name}", "description": c.description, "usage": c.usage}
         for c in COMMANDS.values()

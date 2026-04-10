@@ -70,3 +70,20 @@ def load_yaml(filename: str) -> dict:
     with open(path) as f:
         raw = yaml.safe_load(f) or {}
     return _walk_resolve(raw)
+
+
+def get_default_model(models_config: dict | None = None) -> str:
+    """Return the configured default model, or the first configured model as fallback."""
+    config = models_config or load_yaml("models.yaml")
+    default_model = config.get("default_model")
+    if default_model:
+        return default_model
+
+    for provider in config.get("providers", {}).values():
+        models = provider.get("models") or provider.get("deployments") or []
+        if models:
+            model_id = models[0].get("id")
+            if model_id:
+                return model_id
+
+    raise ValueError("No models configured in config/models.yaml")

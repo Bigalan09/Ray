@@ -82,14 +82,14 @@ def _llm_route(message: str) -> str | None:
     Returns an agent name or None if classification fails.
     """
     try:
-        from config import settings, load_yaml
+        from config import settings, load_yaml, get_default_model
         if not settings.openai_api_key:
             return None
 
         from llm.responses import _get_client, response_output_text
         client = _get_client()
         models_config = load_yaml("models.yaml")
-        model = models_config.get("default_model", "gpt-4o")
+        model = get_default_model(models_config)
 
         agents = load_agents()
         agent_descriptions = "\n".join(

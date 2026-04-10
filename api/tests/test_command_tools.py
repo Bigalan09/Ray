@@ -4,7 +4,6 @@ import json
 
 
 def test_tool_list():
-    import commands.builtin  # noqa: F401
     from commands.registry import execute_command
     result = asyncio.run(execute_command("tool", "list", {}))
     assert "Available tools" in result["content"]
@@ -12,14 +11,12 @@ def test_tool_list():
 
 
 def test_tool_execute_calculator():
-    import commands.builtin  # noqa: F401
     from commands.registry import execute_command
     result = asyncio.run(execute_command("tool", 'calculator {"expression": "2 + 3"}', {}))
     assert result["data"]["result"] == 5.0
 
 
 def test_tool_invalid_json():
-    import commands.builtin  # noqa: F401
     from commands.registry import execute_command
     result = asyncio.run(execute_command("tool", "calculator not_json", {}))
     assert result.get("error") is True
@@ -27,14 +24,12 @@ def test_tool_invalid_json():
 
 
 def test_tool_unknown_tool():
-    import commands.builtin  # noqa: F401
     from commands.registry import execute_command
     result = asyncio.run(execute_command("tool", "nonexistent_tool {}", {}))
     assert result.get("error") is True
 
 
 def test_task_list_empty():
-    import commands.builtin  # noqa: F401
     from commands.registry import execute_command
     result = asyncio.run(execute_command("task", "list", {}))
     # Either "No tasks" or "Recent tasks" depending on state

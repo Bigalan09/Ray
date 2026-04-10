@@ -1,8 +1,6 @@
 """Tests for skills system (/skill command)."""
 import asyncio
 
-import commands.skills  # noqa: F401
-
 
 def test_skill_list():
     from commands.registry import execute_command

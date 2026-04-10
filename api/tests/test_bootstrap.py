@@ -98,7 +98,6 @@ def test_bootstrap_status_endpoint(client):
 
 def test_bootstrap_status_command():
     import asyncio
-    import commands.builtin  # noqa: F401
     from commands.registry import execute_command
     result = asyncio.run(execute_command("bootstrap", "status", {}))
     assert "bootstrap" in result["content"].lower()
@@ -106,7 +105,6 @@ def test_bootstrap_status_command():
 
 def test_bootstrap_reset_command():
     import asyncio
-    import commands.builtin  # noqa: F401
     from commands.registry import execute_command
     result = asyncio.run(execute_command("bootstrap", "reset", {}))
     assert "reset" in result["content"].lower()
@@ -140,7 +138,6 @@ def test_try_save_bootstrap_no_markers():
 def test_bootstrap_done_response_is_clean():
     """The /bootstrap done command should return 'Updated ...' and 'Hi {name}, how can I help?'."""
     import asyncio
-    import commands.builtin  # noqa: F401
     from commands.registry import execute_command
     from unittest.mock import patch as _patch, MagicMock
 
@@ -175,7 +172,6 @@ def test_bootstrap_done_response_is_clean():
 def test_bootstrap_done_redirect_has_finalize_flag():
     """When no markers found, redirect should include bootstrap_finalize flag."""
     import asyncio
-    import commands.builtin  # noqa: F401
     from commands.registry import execute_command
     from unittest.mock import patch as _patch
 

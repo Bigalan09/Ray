@@ -1,25 +1,12 @@
 import { defineConfig } from "@playwright/test";
-import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
+import { loadPreferredEnv } from "./support/env";
 
-// Load .env from repo root
-const envFile = resolve(__dirname, "../.env");
-const envVars: Record<string, string> = {};
-if (existsSync(envFile)) {
-  for (const line of readFileSync(envFile, "utf-8").split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIdx = trimmed.indexOf("=");
-    if (eqIdx === -1) continue;
-    const key = trimmed.slice(0, eqIdx).trim();
-    let value = trimmed.slice(eqIdx + 1).trim();
-    // Strip surrounding quotes
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    envVars[key] = value;
-  }
-}
+const envVars = loadPreferredEnv(
+  resolve(__dirname, ".env"),
+  resolve(__dirname, "../.env"),
+);
+const pythonBin = process.env.PYTHON_BIN || "python3";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -31,14 +18,15 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "cd ../api && python -m uvicorn main:app --host 0.0.0.0 --port 8000",
+      command: `cd ../api && ${pythonBin} -m uvicorn main:app --host 0.0.0.0 --port 8000`,
       port: 8000,
       timeout: 15000,
       reuseExistingServer: true,
       env: {
         ...envVars,
         CONFIG_DIR: "../config",
-        DATA_DIR: "../data",
+        DATA_DIR: "../workspace",
+        WORKSPACE_DIR: "../workspace",
       },
     },
     {

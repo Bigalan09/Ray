@@ -4,8 +4,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-import commands.file_ops  # noqa: F401
-
 
 def _run(coro):
     return asyncio.run(coro)

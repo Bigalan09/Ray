@@ -17,6 +17,19 @@ docker compose up --build
 
 On first run, Ray will guide you through a bootstrap onboarding to set up identity and preferences.
 
+## Local Setup
+
+```bash
+# API dependencies
+cd api && python -m pip install -r requirements.txt
+
+# UI dependencies
+cd ui && bun install
+
+# Playwright test dependencies
+cd tests && npm install
+```
+
 ## Architecture
 
 ```
@@ -65,6 +78,7 @@ config/                 App configuration (read-only, in git)
 ## Slash Commands
 
 Type `/` in the chat input for autocomplete.
+The live command list comes from `/help` and `GET /api/commands`; the table below is the short reference.
 
 | Command | Description |
 |---------|-------------|
@@ -104,7 +118,7 @@ Invoke with `/skill summarise <text>`.
 
 ## MCP Tools
 
-Ray connects to external tool servers via the [Model Context Protocol](https://modelcontextprotocol.io/). Configure servers in `data/mcp_servers.json`:
+Ray connects to external tool servers via the [Model Context Protocol](https://modelcontextprotocol.io/). Configure servers in `workspace/mcp_servers.json`:
 
 ```json
 {
@@ -170,7 +184,7 @@ Copy `.env.example` to `.env` and fill in:
 
 - **API key**: `POST /api/auth/generate-key` creates a key. Pass as `X-API-Key` header. Auth disabled until a key is generated.
 - **Rate limiting**: 120 req/min, 20 burst per IP.
-- **Audit logging**: Mutating requests logged to `data/audit.db`.
+- **Audit logging**: Mutating requests logged to `workspace/audit.db`.
 - All ports bound to `127.0.0.1`.
 
 ## Testing
@@ -179,11 +193,18 @@ Copy `.env.example` to `.env` and fill in:
 # API unit tests (including optional live OpenAI integration)
 cd api && python -m pytest tests/ -v
 
+# Same E2E commands from repo root
+npm run test:e2e
+npm run test:e2e:api
+
 # E2E (Playwright, full stack via Docker)
 cd tests && npx playwright test
 
 # E2E (API-only, no UI required)
 cd tests && npx playwright test --config=playwright.api.config.ts
+
+# Manual live bootstrap flow only
+cd tests && RAY_RUN_BOOTSTRAP_INTERACTIVE=1 npx playwright test e2e/bootstrap-interactive.spec.ts --headed
 ```
 
 ## Development
@@ -191,4 +212,8 @@ cd tests && npx playwright test --config=playwright.api.config.ts
 ```bash
 cd api && uvicorn main:app --reload --port 8000
 cd ui && API_URL=http://localhost:8000 bun run dev
+
+# Or use the repo-level shortcuts
+npm run ui:dev
+npm run docker:up
 ```

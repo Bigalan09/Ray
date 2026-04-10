@@ -19,7 +19,7 @@ _MAX_RESTART_ATTEMPTS = 3
 
 
 def _load_mcp_config() -> list[dict]:
-    """Load MCP server configuration from data/mcp_servers.json."""
+    """Load MCP server configuration from workspace/mcp_servers.json."""
     config_path = settings.data_dir / "mcp_servers.json"
     if not config_path.exists():
         # Also check config dir

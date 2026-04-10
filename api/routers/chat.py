@@ -8,7 +8,7 @@ import httpx
 from fastapi import APIRouter, Request
 from sse_starlette.sse import EventSourceResponse
 
-from config import settings, load_yaml
+from config import settings, load_yaml, get_default_model
 from memory.conversation import add_message, auto_title
 from agents.router import route_message
 from agents.base import build_agent_context
@@ -62,7 +62,7 @@ def _try_save_bootstrap(text: str) -> bool:
 
         if identity:
             mark_bootstrapped(identity, soul, user)
-            log.info("Bootstrap complete: identity files saved to data/")
+            log.info("Bootstrap complete: identity files saved to workspace/")
             return True
         else:
             log.warning("Bootstrap markers found but IDENTITY section was empty")
@@ -202,7 +202,7 @@ async def chat(request: Request):
             # Bootstrap finalization: buffer LLM response, save files, return clean message
             if result.get("bootstrap_finalize"):
                 models_config_bf = load_yaml("models.yaml")
-                default_model_bf = models_config_bf.get("default_model", "gpt-4o")
+                default_model_bf = get_default_model(models_config_bf)
                 deployment_bf = model or default_model_bf
                 return await _finalize_bootstrap(messages, deployment_bf, models_config_bf, conversation_id)
 
@@ -244,7 +244,7 @@ async def chat(request: Request):
             }
 
     models_config = load_yaml("models.yaml")
-    default_model = models_config.get("default_model", "gpt-4o")
+    default_model = get_default_model(models_config)
     deployment = model or default_model
 
     # Direct streaming path. Ray always runs locally through the configured provider.

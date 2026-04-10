@@ -9,9 +9,14 @@ from fastapi.testclient import TestClient
 # Ensure the api package is importable
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Load the root .env file so local test runs pick up any configured credentials
-_env_file = Path(__file__).parent.parent.parent / ".env"
-if _env_file.exists():
+# Load a local test override first, else fall back to the repo root .env.
+_env_candidates = [
+    Path(__file__).parent / ".env",
+    Path(__file__).parent.parent.parent / ".env",
+]
+for _env_file in _env_candidates:
+    if not _env_file.exists():
+        continue
     for line in _env_file.read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
@@ -21,6 +26,7 @@ if _env_file.exists():
         value = value.strip().strip('"').strip("'")
         if key and key not in os.environ:
             os.environ[key] = value
+    break
 
 # Set test directories
 os.environ["CONFIG_DIR"] = str(Path(__file__).parent.parent.parent / "config")

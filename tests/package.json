@@ -3,9 +3,11 @@
   "private": true,
   "scripts": {
     "test": "npx playwright test",
-    "test:headed": "npx playwright test --headed"
+    "test:api": "npx playwright test --config=playwright.api.config.ts",
+    "test:headed": "npx playwright test --headed",
+    "test:bootstrap:live": "RAY_RUN_BOOTSTRAP_INTERACTIVE=1 npx playwright test e2e/bootstrap-interactive.spec.ts --headed"
   },
   "devDependencies": {
-    "@playwright/test": "^1.52.0"
+    "@playwright/test": "^1.59.1"
   }
 }

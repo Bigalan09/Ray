@@ -1,4 +1,10 @@
 import { test, expect } from "@playwright/test";
+import {
+  extractContent,
+  parseSSE,
+  type SSEEvent,
+} from "../support/sse";
+import { fetchWithRetry } from "../support/request";
 
 /**
  * E2E tests for bootstrap completion output, bootstrap enforcement,
@@ -14,66 +20,6 @@ import { test, expect } from "@playwright/test";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-interface SSEEvent {
-  type?: string;
-  content?: string;
-  action?: string;
-  choices?: { delta: { content?: string }; index: number }[];
-  [key: string]: unknown;
-}
-
-function parseSSE(raw: string): SSEEvent[] {
-  const events: SSEEvent[] = [];
-  for (const line of raw.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("data: ")) continue;
-    const data = trimmed.slice(6);
-    if (data === "[DONE]") continue;
-    try {
-      events.push(JSON.parse(data));
-    } catch {
-      // skip non-JSON
-    }
-  }
-  return events;
-}
-
-/** Concatenate all streamed content from SSE events into a single string. */
-function extractContent(events: SSEEvent[]): string {
-  let text = "";
-  for (const e of events) {
-    if (e.type === "command_result" && e.content) {
-      text += e.content;
-    }
-    const delta = e.choices?.[0]?.delta?.content;
-    if (delta) {
-      text += delta;
-    }
-  }
-  return text;
-}
-
-/** Fetch with retry on 429 rate limit. */
-async function fetchWithRetry(
-  request: any,
-  method: "get" | "post" | "put" | "delete",
-  url: string,
-  options?: Record<string, unknown>,
-  retries = 3,
-): Promise<any> {
-  for (let i = 0; i < retries; i++) {
-    const resp = options
-      ? await request[method](url, options)
-      : await request[method](url);
-    if (resp.status() !== 429) return resp;
-    // Wait before retrying (exponential backoff)
-    await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
-  }
-  return options
-    ? await request[method](url, options)
-    : await request[method](url);
-}
 
 /** Send a chat message via the API and return parsed SSE events. */
 async function chatSSE(

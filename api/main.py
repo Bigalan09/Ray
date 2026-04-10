@@ -134,7 +134,7 @@ async def audit_log(limit: int = 100):
 async def gen_key():
     existing = _load_api_key()
     if existing:
-        return {"error": "API key already exists. Delete data/api_key to regenerate."}
+        return {"error": "API key already exists. Delete workspace/api_key to regenerate."}
     key = generate_api_key()
     return {"api_key": key, "note": "Save this key. It will not be shown again."}
 
