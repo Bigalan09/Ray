@@ -6,12 +6,55 @@ from collections import defaultdict
 
 from fastapi import Request, HTTPException
 
-_RPM = 120
-_BURST = 20
+_DEFAULT_RPM = 1200
+_DEFAULT_BURST = 200
 
 # Try Redis, fall back to in-memory
 _redis_client = None
 _fallback: dict[str, list[float]] = defaultdict(list)
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        parsed = int(raw)
+    except ValueError:
+        return default
+    return parsed if parsed > 0 else default
+
+
+def get_rate_limit_config() -> tuple[bool, int, int]:
+    """Return rate limit enablement and thresholds from environment."""
+    enabled = _env_flag("RATE_LIMIT_ENABLED", True)
+    rpm = _env_int("RATE_LIMIT_RPM", _DEFAULT_RPM)
+    burst = _env_int("RATE_LIMIT_BURST", _DEFAULT_BURST)
+    return enabled, rpm, burst
+
+
+def _get_client_key(request: Request) -> str:
+    api_key = request.headers.get("x-api-key", "").strip()
+    if api_key:
+        return f"api-key:{api_key}"
+
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for:
+        return f"ip:{forwarded_for.split(',')[0].strip()}"
+
+    real_ip = request.headers.get("x-real-ip", "").strip()
+    if real_ip:
+        return f"ip:{real_ip}"
+
+    ip = request.client.host if request.client else "unknown"
+    return f"ip:{ip}"
 
 
 def _get_redis():
@@ -36,19 +79,23 @@ def check_rate_limit(request: Request) -> None:
     if request.url.path == "/health":
         return
 
-    ip = request.client.host if request.client else "unknown"
+    enabled, rpm, burst = get_rate_limit_config()
+    if not enabled:
+        return
+
+    client_key = _get_client_key(request)
     r = _get_redis()
 
     if r:
-        _check_redis(r, ip)
+        _check_redis(r, client_key, rpm, burst)
     else:
-        _check_memory(ip)
+        _check_memory(client_key, rpm, burst)
 
 
-def _check_redis(r, ip: str) -> None:
+def _check_redis(r, client_key: str, rpm: int, burst: int) -> None:
     """Redis-backed sliding window rate limit."""
     now = time.time()
-    key = f"ratelimit:{ip}"
+    key = f"ratelimit:{client_key}"
 
     pipe = r.pipeline()
     pipe.zremrangebyscore(key, 0, now - 60)
@@ -58,25 +105,25 @@ def _check_redis(r, ip: str) -> None:
     results = pipe.execute()
 
     count = results[2]
-    if count > _RPM:
+    if count > rpm:
         raise HTTPException(status_code=429, detail="Rate limit exceeded.")
 
     # Burst check (last second)
     burst_count = r.zcount(key, now - 1, now)
-    if burst_count > _BURST:
+    if burst_count > burst:
         raise HTTPException(status_code=429, detail="Rate limit exceeded.")
 
 
-def _check_memory(ip: str) -> None:
+def _check_memory(client_key: str, rpm: int, burst: int) -> None:
     """In-memory fallback rate limit."""
     now = time.time()
-    _fallback[ip] = [t for t in _fallback[ip] if t > now - 60]
+    _fallback[client_key] = [t for t in _fallback[client_key] if t > now - 60]
 
-    if len(_fallback[ip]) >= _RPM:
+    if len(_fallback[client_key]) >= rpm:
         raise HTTPException(status_code=429, detail="Rate limit exceeded.")
 
-    recent = [t for t in _fallback[ip] if t > now - 1]
-    if len(recent) >= _BURST:
+    recent = [t for t in _fallback[client_key] if t > now - 1]
+    if len(recent) >= burst:
         raise HTTPException(status_code=429, detail="Rate limit exceeded.")
 
-    _fallback[ip].append(now)
+    _fallback[client_key].append(now)

@@ -333,7 +333,14 @@ const App: React.FC = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ model: defaultModel }),
         });
+        if (!createResp.ok) {
+          const errorText = await createResp.text();
+          throw new Error(errorText || `Failed to create conversation (${createResp.status})`);
+        }
         const conv = await createResp.json();
+        if (!conv?.id) {
+          throw new Error("Conversation creation returned no id");
+        }
         convId = conv.id;
         setActiveConversationId(convId);
 
@@ -351,6 +358,10 @@ const App: React.FC = () => {
         }
       } catch (err) {
         console.error("Failed to create conversation:", err);
+        setStreaming(false);
+        setCurrentResponse("");
+        setError("Could not create a new conversation.");
+        return;
       }
     }
 

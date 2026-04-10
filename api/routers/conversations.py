@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from memory.conversation import (
     create_conversation,
+    conversation_exists,
     list_conversations,
     get_conversation,
     delete_conversation,
@@ -71,4 +72,6 @@ async def update_conv(conv_id: str, req: UpdateTitleRequest):
 
 @router.post("/conversations/{conv_id}/messages")
 async def add_msg(conv_id: str, req: AddMessageRequest):
+    if not conversation_exists(conv_id):
+        raise HTTPException(status_code=404, detail="Conversation not found")
     return add_message(conv_id, req.role, req.content)

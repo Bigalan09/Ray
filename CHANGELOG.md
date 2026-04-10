@@ -23,6 +23,12 @@ All notable changes to Ray are documented here.
 - **Playwright support code**: Shared env loading, SSE parsing, and retry helpers now live under `tests/support/` instead of being duplicated across specs and configs.
 - **Repo entrypoints and docs**: Root `package.json` now provides the canonical Playwright and UI shortcuts, and current docs consistently point at `workspace/` for runtime state.
 - **Default model**: Ray now defaults to `gpt-5-nano` via `config/models.yaml` instead of `gpt-5.4-mini`.
+- **Rate limiting defaults**: The limiter is now configurable via `.env` and defaults to `1200` req/min with a `200` request burst to avoid collapsing normal local UI traffic.
+
+### Fixed
+- **Chat persistence**: Direct chat responses now skip persistence when the conversation is missing instead of logging foreign key failures.
+- **Hook emission**: `response_persisted` and tool execution hooks no longer fail from an out-of-scope `hook_engine`.
+- **Conversation creation failures**: The UI now stops cleanly when conversation creation fails instead of posting to `/api/conversations/undefined/messages`.
 
 ### Removed
 - **Dead local action bridge**: Removed the obsolete marker-based local action module that was no longer used by the runtime tool-calling path.

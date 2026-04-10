@@ -98,6 +98,15 @@ def get_conversation(conv_id: str) -> dict | None:
     return conv
 
 
+def conversation_exists(conv_id: str) -> bool:
+    db = _get_db()
+    try:
+        row = db.execute("SELECT 1 FROM conversations WHERE id = ?", (conv_id,)).fetchone()
+        return row is not None
+    finally:
+        db.close()
+
+
 def delete_conversation(conv_id: str) -> bool:
     db = _get_db()
     cursor = db.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
@@ -134,18 +143,20 @@ def update_conversation_title(conv_id: str, title: str) -> bool:
 
 def add_message(conv_id: str, role: str, content: str | list, metadata: dict | None = None) -> dict:
     db = _get_db()
-    msg_id = str(uuid.uuid4())
-    now = _now()
-    content_str = json.dumps(content) if isinstance(content, list) else content
-    metadata_str = json.dumps(metadata) if metadata else None
-    db.execute(
-        "INSERT INTO messages (id, conversation_id, role, content, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (msg_id, conv_id, role, content_str, metadata_str, now),
-    )
-    db.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (now, conv_id))
-    db.commit()
-    db.close()
-    return {"id": msg_id, "conversation_id": conv_id, "role": role, "content": content, "metadata": metadata, "created_at": now}
+    try:
+        msg_id = str(uuid.uuid4())
+        now = _now()
+        content_str = json.dumps(content) if isinstance(content, list) else content
+        metadata_str = json.dumps(metadata) if metadata else None
+        db.execute(
+            "INSERT INTO messages (id, conversation_id, role, content, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (msg_id, conv_id, role, content_str, metadata_str, now),
+        )
+        db.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (now, conv_id))
+        db.commit()
+        return {"id": msg_id, "conversation_id": conv_id, "role": role, "content": content, "metadata": metadata, "created_at": now}
+    finally:
+        db.close()
 
 
 def auto_title(conv_id: str) -> str | None:

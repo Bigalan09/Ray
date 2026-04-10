@@ -4,6 +4,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 
 def test_health_bypasses_auth(client):
     """Health endpoint should be accessible without API key."""
@@ -64,3 +66,26 @@ def test_audit_log_records_post_requests(client):
     post_logs = [l for l in logs if l["path"] == "/api/conversations" and l["method"] == "POST"]
     assert len(post_logs) > 0
     assert post_logs[0]["status_code"] == 200
+
+
+def test_rate_limit_reads_env_overrides(monkeypatch):
+    """Rate limiting should honour environment overrides."""
+    from security import rate_limit
+
+    monkeypatch.setenv("RATE_LIMIT_RPM", "321")
+    monkeypatch.setenv("RATE_LIMIT_BURST", "123")
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+
+    enabled, rpm, burst = rate_limit.get_rate_limit_config()
+    assert enabled is True
+    assert rpm == 321
+    assert burst == 123
+
+
+def test_add_message_returns_404_for_missing_conversation(client):
+    """Adding a message to an unknown conversation should not explode with a DB error."""
+    resp = client.post(
+        "/api/conversations/not-a-real-conversation/messages",
+        json={"role": "user", "content": "hello"},
+    )
+    assert resp.status_code == 404

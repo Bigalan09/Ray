@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request
 from sse_starlette.sse import EventSourceResponse
 
 from config import settings, load_yaml, get_default_model
-from memory.conversation import add_message, auto_title
+from memory.conversation import add_message, auto_title, conversation_exists
 from agents.router import route_message
 from agents.base import build_agent_context
 import logging
@@ -265,6 +265,8 @@ async def _chat_direct(
     messages: list[dict], conversation_id: str | None,
 ):
     """Handle chat via direct streaming."""
+    from hooks.engine import hook_engine
+
     provider, resolved_model = resolve_model_provider(model)
     enabled_tools = agent_ctx["tools"]
 
@@ -408,7 +410,7 @@ async def _chat_direct(
 
         yield {"data": "[DONE]"}
 
-        if conversation_id and accumulated_response:
+        if conversation_id and accumulated_response and conversation_exists(conversation_id):
             try:
                 add_message(conversation_id, "assistant", accumulated_response,
                             metadata={"agent": agent_name, "model": resolved_model})

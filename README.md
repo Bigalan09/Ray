@@ -179,13 +179,14 @@ Copy `.env.example` to `.env` and fill in:
 
 - `OPENAI_API_KEY`
 - `OPENAI_BASE_URL` only if you are routing through an OpenAI-compatible gateway
+- `RATE_LIMIT_ENABLED`, `RATE_LIMIT_RPM`, and `RATE_LIMIT_BURST` if you want stricter or looser local throttling
 
 The default model is configured in [config/models.yaml](/Users/alan/Development/Ray/config/models.yaml). Ray now defaults to `gpt-5-nano`.
 
 ## Security
 
 - **API key**: `POST /api/auth/generate-key` creates a key. Pass as `X-API-Key` header. Auth disabled until a key is generated.
-- **Rate limiting**: 120 req/min, 20 burst per IP.
+- **Rate limiting**: Configurable through `.env`. Default thresholds are `1200` req/min and `200` burst. The limiter prefers `X-API-Key`, then forwarded IP headers, then the socket IP.
 - **Audit logging**: Mutating requests logged to `workspace/audit.db`.
 - All ports bound to `127.0.0.1`.
 

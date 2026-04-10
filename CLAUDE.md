@@ -139,7 +139,7 @@ Tasks broadcast status updates via WebSocket (`/ws`). The UI connects to this We
 ## Security
 
 - **API key auth**: `POST /api/auth/generate-key` creates a key stored in `workspace/api_key`. Pass as `X-API-Key` header. Auth is disabled until a key is generated.
-- **Rate limiting**: 120 req/min, 20 burst per IP. Uses Redis when available, in-memory fallback.
+- **Rate limiting**: Configurable with `RATE_LIMIT_ENABLED`, `RATE_LIMIT_RPM`, and `RATE_LIMIT_BURST`. Defaults are `1200` req/min and `200` burst. The limiter keys by API key first, then forwarded IP headers, then socket IP. Uses Redis when available, in-memory fallback.
 - **Audit logging**: Mutating requests logged to `workspace/audit.db` with sanitised bodies.
 - **Middleware**: All three enforced via HTTP middleware in `main.py`. Public paths (`/health`, `/api/auth/*`) bypass auth.
 - All ports bound to 127.0.0.1.
