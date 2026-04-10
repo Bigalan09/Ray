@@ -49,6 +49,7 @@ def build_system_prompt(
     model: str = "",
     bootstrap_mode: bool = False,
     tools: list[dict] | None = None,
+    injected_memories: list[dict] | None = None,
 ) -> str:
     """Build the full system prompt from workspace files and agent config.
 
@@ -89,6 +90,14 @@ def build_system_prompt(
         daily = load_workspace_file(f"memory/{d.isoformat()}.md")
         if daily:
             sections.append(f"## Memory: {d.isoformat()}\n\n{_trimmed(daily, 'daily log')}")
+
+    # --- Proactive memory injection (semantic search results for this turn) ---
+    if injected_memories:
+        snippets = "\n".join(
+            f"- {m['content']}" for m in injected_memories[:4] if m.get("content")
+        )
+        if snippets:
+            sections.append(f"## Relevant Memory\n\n{snippets}")
 
     # --- Agent-specific prompt ---
     if agent_prompt:

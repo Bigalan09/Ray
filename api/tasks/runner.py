@@ -97,18 +97,17 @@ async def run_agent_task(task_id: str) -> str:
         return ""
 
 
-async def _complete_non_streaming(
-    provider, model_id: str, messages: list[dict],
+async def _collect_round(
+    provider, model_id: str, conversation: list[dict],
     temperature: float, tools: list[dict] | None,
-) -> str:
-    """Run a non-streaming LLM completion (for background tasks)."""
-    # Collect all streamed content
+) -> tuple[list[dict], str, str]:
+    """Run one streaming inference round. Returns (tool_calls, finish_reason, text)."""
     full_text = ""
     tool_calls: list[dict] = []
     finish_reason = ""
 
     async for line in provider.stream_chat(
-        messages=messages,
+        messages=conversation,
         temperature=temperature,
         tools=tools if tools else None,
         model=model_id,
@@ -118,20 +117,20 @@ async def _complete_non_streaming(
         data = line[6:]
         if data == "[DONE]":
             break
-
         try:
             parsed = json.loads(data)
-            content = parsed.get("choices", [{}])[0].get("delta", {}).get("content")
+            choice = (parsed.get("choices") or [{}])[0]
+            delta = choice.get("delta", {})
+            content = delta.get("content")
             if content:
                 full_text += content
-
-            # Handle tool calls
-            delta_tc = parsed.get("choices", [{}])[0].get("delta", {}).get("tool_calls")
+            delta_tc = delta.get("tool_calls")
             if delta_tc:
                 for dtc in delta_tc:
                     idx = dtc.get("index", 0)
                     while len(tool_calls) <= idx:
-                        tool_calls.append({"id": "", "type": "function", "function": {"name": "", "arguments": ""}})
+                        tool_calls.append({"id": "", "type": "function",
+                                           "function": {"name": "", "arguments": ""}})
                     if dtc.get("id"):
                         tool_calls[idx]["id"] = dtc["id"]
                     fn = dtc.get("function", {})
@@ -139,18 +138,34 @@ async def _complete_non_streaming(
                         tool_calls[idx]["function"]["name"] += fn["name"]
                     if fn.get("arguments"):
                         tool_calls[idx]["function"]["arguments"] += fn["arguments"]
-
-            fr = parsed.get("choices", [{}])[0].get("finish_reason")
+            fr = choice.get("finish_reason")
             if fr:
                 finish_reason = fr
         except json.JSONDecodeError:
             pass
 
-    # Drop placeholder slots with no name before executing
     tool_calls = [tc for tc in tool_calls if tc["function"].get("name")]
+    return tool_calls, finish_reason, full_text
 
-    # Handle tool calls if needed
-    if finish_reason == "tool_calls" and tool_calls:
+
+async def _complete_non_streaming(
+    provider, model_id: str, messages: list[dict],
+    temperature: float, tools: list[dict] | None,
+) -> str:
+    """Run a non-streaming LLM completion with a full multi-round tool loop."""
+    MAX_ROUNDS = 10
+    conversation = list(messages)
+    full_text = ""
+
+    for _round in range(MAX_ROUNDS):
+        tool_calls, finish_reason, round_text = await _collect_round(
+            provider, model_id, conversation, temperature, tools
+        )
+        full_text += round_text
+
+        if finish_reason != "tool_calls" or not tool_calls:
+            break
+
         tool_messages = []
         for tc in tool_calls:
             try:
@@ -164,31 +179,8 @@ async def _complete_non_streaming(
                 "content": json.dumps(result),
             })
 
-        # Follow-up request with tool results
-        follow_up = [
-            *messages,
-            {"role": "assistant", "tool_calls": tool_calls},
-            *tool_messages,
-        ]
-        follow_text = ""
-        async for line in provider.stream_chat(
-            messages=follow_up,
-            temperature=temperature,
-            model=model_id,
-        ):
-            if not line.startswith("data: "):
-                continue
-            data = line[6:]
-            if data == "[DONE]":
-                break
-            try:
-                parsed = json.loads(data)
-                c = parsed.get("choices", [{}])[0].get("delta", {}).get("content")
-                if c:
-                    follow_text += c
-            except json.JSONDecodeError:
-                pass
-        return full_text + follow_text
+        conversation.append({"role": "assistant", "tool_calls": tool_calls})
+        conversation.extend(tool_messages)
 
     return full_text
 

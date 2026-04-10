@@ -247,10 +247,19 @@ async def chat(request: Request):
     default_model = get_default_model(models_config)
     deployment = model or default_model
 
-    # Direct streaming path. Ray always runs locally through the configured provider.
-    # Internal sub-agent routing still happens for optimised temperature/tools.
+    # Proactive memory injection: query ChromaDB with the user's message before
+    # building the system prompt so relevant past facts are always in context.
+    from memory.store import memory_search as _mem_search
+    injected_memories: list[dict] = []
+    if last_user_msg:
+        try:
+            mem_result = await _mem_search(last_user_msg, limit=4)
+            injected_memories = mem_result.get("results", [])
+        except Exception:
+            pass
+
     agent_name = route_message(last_user_msg, "general")
-    agent_ctx = build_agent_context(agent_name)
+    agent_ctx = build_agent_context(agent_name, injected_memories=injected_memories)
     temperature = payload.get("temperature")
     effective_temp = temperature if temperature is not None else agent_ctx["temperature"]
 

@@ -6,7 +6,7 @@ from config import load_yaml, settings
 from tools.mcp.manager import get_mcp_tools
 
 
-def build_agent_context(agent_name: str) -> dict:
+def build_agent_context(agent_name: str, injected_memories: list[dict] | None = None) -> dict:
     """Build the context needed to run an agent.
 
     Returns a dict with:
@@ -52,6 +52,7 @@ def build_agent_context(agent_name: str) -> dict:
         agent_prompt=raw_prompt,
         agent_name=agent.get("name", "general"),
         tools=combined_tools,
+        injected_memories=injected_memories,
     )
 
     return {

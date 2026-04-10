@@ -7,7 +7,7 @@ skills:
   - name: review
     description: Code review for bugs, style, and improvements
     prompt: "Review the following code for bugs, style issues, and potential improvements. Be specific and actionable:\n\n{input}"
-    agent: coder
+    agent: general
 
   - name: explain
     description: Explain a concept or piece of code
@@ -17,9 +17,9 @@ skills:
   - name: draft
     description: Draft an email or document
     prompt: "Draft the following in a professional but friendly tone:\n\n{input}"
-    agent: writer
+    agent: general
 
   - name: research
     description: Research a topic and summarise findings
     prompt: "Research the following topic. Provide key facts, recent developments, and useful links:\n\n{input}"
-    agent: researcher
+    agent: general

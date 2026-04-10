@@ -1,8 +1,17 @@
 schedules:
+  - name: memory-curator
+    prompt: >
+      Review recent memory daily log files (memory/YYYY-MM-DD.md) and update
+      MEMORY.md with important long-term facts. Distil, don't just append.
+      Remove stale or redundant entries. Keep it under 200 lines.
+    agent: curator
+    cron: "0 2 * * *"
+    enabled: false
+
   # Example: daily news summary at 8am
   # - name: morning_briefing
   #   cron: "0 8 * * *"
-  #   agent: researcher
+  #   agent: general
   #   prompt: >
   #     Search for the top 5 technology and AI news stories from today.
   #     Summarise each in 2-3 sentences. Store the summary in memory.

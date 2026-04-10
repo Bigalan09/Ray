@@ -23,6 +23,23 @@ tools:
           description: "Optional timezone (e.g. Europe/London, America/New_York)"
     enabled: true
 
+  - name: web_search
+    description: >
+      Search the web for current information, news, prices, or any topic
+      requiring up-to-date data. Returns titles, URLs, and snippets.
+    parameters:
+      type: object
+      properties:
+        query:
+          type: string
+          description: The search query
+        max_results:
+          type: number
+          description: Maximum results to return (default 5)
+      required:
+        - query
+    enabled: true
+
   - name: memory_search
     description: >
       Search your memory for relevant past context, facts, or preferences
@@ -139,6 +156,32 @@ tools:
         directory:
           type: string
           description: "Directory relative to workspace (default: root)"
+    enabled: true
+
+  - name: spawn_tasks
+    description: >
+      Spawn multiple sub-agent tasks to run in parallel. Each task has a
+      prompt and an optional agent name. Returns combined results when all
+      complete. Use this to decompose complex goals into concurrent work.
+    parameters:
+      type: object
+      properties:
+        tasks:
+          type: array
+          description: List of tasks to run in parallel
+          items:
+            type: object
+            properties:
+              prompt:
+                type: string
+                description: The task prompt
+              agent:
+                type: string
+                description: "Agent to use (default: general)"
+            required:
+              - prompt
+      required:
+        - tasks
     enabled: true
 
   - name: exec_command

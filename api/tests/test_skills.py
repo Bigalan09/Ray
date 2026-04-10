@@ -24,11 +24,11 @@ def test_skill_unknown():
     assert "Unknown skill" in result["content"]
 
 
-def test_skill_review_uses_coder_agent():
+def test_skill_review_uses_general_agent():
     from commands.registry import execute_command
     result = asyncio.run(execute_command("skill", "review def foo(): pass", {}))
     assert result["type"] == "redirect"
-    assert result["agent"] == "coder"
+    assert result["agent"] == "general"
     assert "def foo(): pass" in result["message"]
 
 

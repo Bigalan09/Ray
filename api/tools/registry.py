@@ -8,6 +8,7 @@ from tools.builtin.update_profile import update_user_profile
 from tools.builtin.workspace_files import write_file, read_file, list_files
 from rag.store import rag_search
 from tools.builtin.exec_tool import exec_command
+from tools.builtin.spawn_tasks import spawn_tasks
 
 TOOL_HANDLERS: dict[str, callable] = {
     "web_search": web_search,
@@ -21,6 +22,7 @@ TOOL_HANDLERS: dict[str, callable] = {
     "read_file": read_file,
     "list_files": list_files,
     "exec_command": exec_command,
+    "spawn_tasks": spawn_tasks,
 }
 
 
