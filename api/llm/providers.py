@@ -182,6 +182,7 @@ class OpenAIResponsesProvider(LLMProvider):
                     item_type = getattr(item, "type", None)
                     if item_type == "function_call":
                         finish_reason = "tool_calls"
+                        break  # tool-call response; no citations to collect
                     elif item_type == "message":
                         for part in getattr(item, "content", []) or []:
                             if getattr(part, "type", None) == "output_text":
@@ -190,8 +191,6 @@ class OpenAIResponsesProvider(LLMProvider):
                                         citations.append({
                                             "url": getattr(ann, "url", ""),
                                             "title": getattr(ann, "title", ""),
-                                            "start_index": getattr(ann, "start_index", None),
-                                            "end_index": getattr(ann, "end_index", None),
                                         })
 
                 if citations:

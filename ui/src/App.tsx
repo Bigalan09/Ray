@@ -502,7 +502,6 @@ const App: React.FC = () => {
 
       const tools = streamToolsRef.current.length > 0 ? [...streamToolsRef.current] : undefined;
       const citations = streamCitationsRef.current.length > 0 ? [...streamCitationsRef.current] : undefined;
-      streamCitationsRef.current = [];
 
       if (allText) {
         setMessages((msgs) => [...msgs, { role: "assistant", content: allText, tools, citations }]);

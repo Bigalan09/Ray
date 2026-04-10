@@ -152,9 +152,7 @@ def build_request_kwargs(
     if temperature is not None and _supports_temperature(model):
         kwargs["temperature"] = temperature
 
-    # Always include the native web_search_preview tool (OpenAI Responses API).
-    # It is Bing-backed and higher quality than the DuckDuckGo function tool.
-    # The model prefers native tools; Azure/Ollama ignore it gracefully.
+    # web_search_preview is native to the Responses API; Azure/Ollama ignore it.
     converted_tools = _convert_tools(tools)
     all_tools = [{"type": "web_search_preview"}] + converted_tools
     kwargs["tools"] = all_tools

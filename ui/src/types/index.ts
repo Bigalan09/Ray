@@ -16,8 +16,6 @@ export interface ToolEvent {
 export interface Citation {
   url: string;
   title: string;
-  start_index?: number | null;
-  end_index?: number | null;
 }
 
 export interface Message {

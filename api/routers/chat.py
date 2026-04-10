@@ -84,16 +84,20 @@ async def _finalize_bootstrap(
     the potentially long identity-file generation.
     """
 
+    _KEEPALIVE = {"data": json.dumps({"ray_metadata": {"type": "keepalive"}})}
+
     async def event_generator():
         try:
-            # Run the LLM call as a background task so we can ping the client
-            # every few seconds while it is working.
+            # Run the LLM call concurrently so we can ping the client every few
+            # seconds — reverse proxies (Traefik) drop idle SSE connections.
             task = asyncio.create_task(
                 _generate_bootstrap_content(messages, deployment, models_config)
             )
-            while not task.done():
-                yield {"data": json.dumps({"ray_metadata": {"type": "keepalive"}})}
-                await asyncio.sleep(4)
+            while True:
+                done, _ = await asyncio.wait([task], timeout=4)
+                if done:
+                    break
+                yield _KEEPALIVE
 
             accumulated = await task
             saved = _try_save_bootstrap(accumulated)
