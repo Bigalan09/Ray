@@ -77,11 +77,25 @@ async def _finalize_bootstrap(
     models_config: dict,
     conversation_id: str | None,
 ):
-    """Buffer LLM response silently, save bootstrap files, return clean message."""
+    """Buffer LLM response silently, save bootstrap files, return clean message.
+
+    Sends periodic keepalive pings while the LLM is generating so that
+    reverse-proxies (Traefik, nginx) do not drop the SSE connection during
+    the potentially long identity-file generation.
+    """
 
     async def event_generator():
         try:
-            accumulated = await _generate_bootstrap_content(messages, deployment, models_config)
+            # Run the LLM call as a background task so we can ping the client
+            # every few seconds while it is working.
+            task = asyncio.create_task(
+                _generate_bootstrap_content(messages, deployment, models_config)
+            )
+            while not task.done():
+                yield {"data": json.dumps({"ray_metadata": {"type": "keepalive"}})}
+                await asyncio.sleep(4)
+
+            accumulated = await task
             saved = _try_save_bootstrap(accumulated)
 
             if saved:
