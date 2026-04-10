@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import type { Message, ToolEvent } from "@/types";
+import type { Message, ToolEvent, Citation } from "@/types";
 import { parseMessage } from "./MessageParser";
 import { ThinkingAnimation } from "./ThinkingAnimation";
 
@@ -201,6 +201,30 @@ function MessageActions({
   );
 }
 
+function CitationCards({ citations }: { citations: Citation[] }) {
+  // Deduplicate by URL
+  const unique = citations.filter((c, i, arr) => arr.findIndex((x) => x.url === c.url) === i);
+  return (
+    <div className="mt-3 pt-2.5 border-t border-white/10">
+      <div className="text-[10px] uppercase tracking-wider text-gray-600 mb-1.5">Sources</div>
+      <div className="flex flex-col gap-1">
+        {unique.map((c, i) => (
+          <a
+            key={i}
+            href={c.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-start gap-2 text-xs text-gray-500 hover:text-blue-400 transition-colors"
+          >
+            <span className="flex-shrink-0 text-gray-600 font-mono">{i + 1}.</span>
+            <span className="line-clamp-1 break-all">{c.title || c.url}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function MessageList({
   messages,
   currentResponse,
@@ -269,6 +293,9 @@ export function MessageList({
                       : "bg-gradient-to-br from-[var(--bg-surface)] to-[#1d2127] shadow-lg"
                   }`}>
                     {renderContent(msg.content)}
+                    {msg.role === "assistant" && msg.citations && msg.citations.length > 0 && (
+                      <CitationCards citations={msg.citations} />
+                    )}
                   </div>
                 )}
                 {hasContent && <MessageActions role={msg.role} content={msg.content} onResend={onResend} />}

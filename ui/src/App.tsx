@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import type { Message, MessageContent, ToolEvent } from "@/types";
+import type { Message, MessageContent, ToolEvent, Citation } from "@/types";
 import { Header } from "@/components/Header";
 import { MessageList } from "@/components/MessageList";
 import { InputForm, type ImageAttachment } from "@/components/InputForm";
@@ -45,6 +45,7 @@ const App: React.FC = () => {
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const [streamTools, setStreamTools] = useState<ToolEvent[]>([]);
   const streamToolsRef = useRef<ToolEvent[]>([]);
+  const streamCitationsRef = useRef<Citation[]>([]);
   const [execPending, setExecPending] = useState<{
     pending_id: string;
     command: string;
@@ -401,6 +402,7 @@ const App: React.FC = () => {
       const decoder = new TextDecoder();
       let allText = "";
       streamToolsRef.current = [];
+      streamCitationsRef.current = [];
       setStreamTools([]);
 
       while (true) {
@@ -436,6 +438,12 @@ const App: React.FC = () => {
                 tool,
               ];
               setStreamTools([...streamToolsRef.current]);
+              continue;
+            }
+
+            // Citation events from web_search_preview
+            if (parsed.ray_citations) {
+              streamCitationsRef.current = parsed.ray_citations as Citation[];
               continue;
             }
 
@@ -493,9 +501,11 @@ const App: React.FC = () => {
       }
 
       const tools = streamToolsRef.current.length > 0 ? [...streamToolsRef.current] : undefined;
+      const citations = streamCitationsRef.current.length > 0 ? [...streamCitationsRef.current] : undefined;
+      streamCitationsRef.current = [];
 
       if (allText) {
-        setMessages((msgs) => [...msgs, { role: "assistant", content: allText, tools }]);
+        setMessages((msgs) => [...msgs, { role: "assistant", content: allText, tools, citations }]);
       } else if (tools) {
         setMessages((msgs) => [...msgs, { role: "assistant", content: "", tools }]);
       }

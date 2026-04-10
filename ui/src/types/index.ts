@@ -13,11 +13,19 @@ export interface ToolEvent {
   result?: Record<string, unknown>;
 }
 
+export interface Citation {
+  url: string;
+  title: string;
+  start_index?: number | null;
+  end_index?: number | null;
+}
+
 export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string | MessageContent[];
   metadata?: Record<string, any>;
   tools?: ToolEvent[];
+  citations?: Citation[];
 }
 
 export interface Attachment {

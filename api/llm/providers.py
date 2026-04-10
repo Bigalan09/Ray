@@ -149,6 +149,17 @@ class OpenAIResponsesProvider(LLMProvider):
                 }
                 yield f"data: {json.dumps(chunk)}"
 
+            elif event_type in (
+                "response.web_search_call.in_progress",
+                "response.web_search_call.searching",
+            ):
+                item = getattr(event, "item", None)
+                query = getattr(item, "query", None) or ""
+                yield f"data: {json.dumps({'ray_tool': {'name': 'web_search', 'status': 'running', 'arguments': {'query': query}}})}"
+
+            elif event_type == "response.web_search_call.completed":
+                yield f"data: {json.dumps({'ray_tool': {'name': 'web_search', 'status': 'success', 'result': {'searched': True}}})}"
+
             elif event_type == "error":
                 message = getattr(event, "message", "Unknown API error")
                 yield f'data: {json.dumps({"error": "API Error", "message": message})}'
@@ -166,10 +177,25 @@ class OpenAIResponsesProvider(LLMProvider):
                     }
 
                 finish_reason = "stop"
+                citations: list[dict] = []
                 for item in getattr(response, "output", []) or []:
-                    if getattr(item, "type", None) == "function_call":
+                    item_type = getattr(item, "type", None)
+                    if item_type == "function_call":
                         finish_reason = "tool_calls"
-                        break
+                    elif item_type == "message":
+                        for part in getattr(item, "content", []) or []:
+                            if getattr(part, "type", None) == "output_text":
+                                for ann in getattr(part, "annotations", []) or []:
+                                    if getattr(ann, "type", None) == "url_citation":
+                                        citations.append({
+                                            "url": getattr(ann, "url", ""),
+                                            "title": getattr(ann, "title", ""),
+                                            "start_index": getattr(ann, "start_index", None),
+                                            "end_index": getattr(ann, "end_index", None),
+                                        })
+
+                if citations:
+                    yield f"data: {json.dumps({'ray_citations': citations})}"
 
                 chunk_data: dict = {
                     "choices": [{"delta": {}, "index": 0, "finish_reason": finish_reason}],
