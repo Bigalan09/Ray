@@ -181,7 +181,7 @@ Copy `.env.example` to `.env` and fill in:
 - `OPENAI_BASE_URL` only if you are routing through an OpenAI-compatible gateway
 - `RATE_LIMIT_ENABLED`, `RATE_LIMIT_RPM`, and `RATE_LIMIT_BURST` if you want stricter or looser local throttling
 
-The default model is configured in [config/models.yaml](/Users/alan/Development/Ray/config/models.yaml). Ray now defaults to `gpt-5-nano`.
+The default model is configured in `config/models.yaml`. Ray defaults to `gpt-5-nano`.
 
 ## Security
 

@@ -146,6 +146,9 @@ async def _complete_non_streaming(
         except json.JSONDecodeError:
             pass
 
+    # Drop placeholder slots with no name before executing
+    tool_calls = [tc for tc in tool_calls if tc["function"].get("name")]
+
     # Handle tool calls if needed
     if finish_reason == "tool_calls" and tool_calls:
         tool_messages = []

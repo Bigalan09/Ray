@@ -335,6 +335,11 @@ async def _chat_direct(
 
                 yield {"data": data}
 
+            # Drop any placeholder slots that never received a name (can happen when
+            # text output items precede function calls in the Responses API output,
+            # causing the index-based while-loop to pre-allocate empty entries).
+            tool_calls = [tc for tc in tool_calls if tc["function"].get("name")]
+
             # No tool calls: the model produced a final response
             if finish_reason != "tool_calls" or not tool_calls:
                 break
