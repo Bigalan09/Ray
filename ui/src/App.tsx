@@ -92,7 +92,9 @@ const App: React.FC = () => {
       if (!bootstrapStatus.bootstrapped && !bootstrapStatus.has_existing_identity) {
         const trigger: Message = { role: "user", content: "[starting up for the first time]" };
         setStreaming(true);
-        streamResponse([trigger], null);
+        // saveMessages=false: the trigger is an internal system prompt, not a real
+        // user message — don't persist it to the DB or it will appear in history.
+        streamResponse([trigger], null, false);
         return;
       }
 
@@ -322,7 +324,7 @@ const App: React.FC = () => {
     }
   };
 
-  const streamResponse = async (msgHistory: Message[], convId: string | null) => {
+  const streamResponse = async (msgHistory: Message[], convId: string | null, saveMessages = true) => {
     abortRef.current = new AbortController();
 
     // Create conversation if none exists, then persist user messages
@@ -344,23 +346,27 @@ const App: React.FC = () => {
         convId = conv.id;
         setActiveConversationId(convId);
 
-        // Save user messages that triggered this conversation
-        for (const msg of msgHistory) {
-          if (msg.role === "user") {
-            try {
-              await fetch(`/api/conversations/${convId}/messages`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ role: "user", content: msg.content }),
-              });
-            } catch {}
+        // Save user messages that triggered this conversation.
+        // Skip for internal system triggers (e.g. bootstrap) that should not
+        // appear in the conversation history.
+        if (saveMessages) {
+          for (const msg of msgHistory) {
+            if (msg.role === "user") {
+              try {
+                await fetch(`/api/conversations/${convId}/messages`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ role: "user", content: msg.content }),
+                });
+              } catch {}
+            }
           }
         }
       } catch (err) {
         console.error("Failed to create conversation:", err);
         setStreaming(false);
         setCurrentResponse("");
-        setError("Could not create a new conversation.");
+        setMessages((msgs) => [...msgs, { role: "system", content: "Could not create a new conversation." }]);
         return;
       }
     }
