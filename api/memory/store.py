@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime, timezone
 
@@ -46,7 +47,12 @@ async def memory_search(query: str, limit: int = 5) -> dict:
         return {"results": [], "note": "Memory store not available"}
 
     try:
-        results = collection.query(query_texts=[query], n_results=limit)
+        # collection.query() is a synchronous blocking call that runs the ONNX
+        # embedding model (and downloads it on first use). Run it in a thread so
+        # it never blocks the event loop.
+        results = await asyncio.to_thread(
+            collection.query, query_texts=[query], n_results=limit
+        )
         memories = []
         if results and results["documents"]:
             for i, doc in enumerate(results["documents"][0]):
@@ -76,7 +82,8 @@ async def memory_store(content: str, tags: list[str] | None = None, source: str 
         if tags:
             metadata["tags"] = ",".join(tags)
 
-        collection.add(
+        await asyncio.to_thread(
+            collection.add,
             ids=[mem_id],
             documents=[content],
             metadatas=[metadata],
@@ -107,7 +114,9 @@ async def memory_list(limit: int = 20) -> dict:
         return {"memories": [], "note": "Memory store not available"}
 
     try:
-        results = collection.get(limit=limit, include=["documents", "metadatas"])
+        results = await asyncio.to_thread(
+            collection.get, limit=limit, include=["documents", "metadatas"]
+        )
         memories = []
         if results and results["documents"]:
             for i, doc in enumerate(results["documents"]):
@@ -125,7 +134,7 @@ async def memory_delete(memory_id: str) -> dict:
         return {"deleted": False, "note": "Memory store not available"}
 
     try:
-        collection.delete(ids=[memory_id])
+        await asyncio.to_thread(collection.delete, ids=[memory_id])
         return {"deleted": True}
     except Exception as e:
         return {"deleted": False, "error": str(e)}
