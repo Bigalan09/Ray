@@ -50,6 +50,7 @@ def build_system_prompt(
     bootstrap_mode: bool = False,
     tools: list[dict] | None = None,
     injected_memories: list[dict] | None = None,
+    injected_documents: list[dict] | None = None,
 ) -> str:
     """Build the full system prompt from workspace files and agent config.
 
@@ -98,6 +99,21 @@ def build_system_prompt(
         )
         if snippets:
             sections.append(f"## Relevant Memory\n\n{snippets}")
+
+    # --- Proactive document injection (RAG chunks relevant to this turn) ---
+    if injected_documents:
+        doc_snippets = []
+        for chunk in injected_documents[:5]:
+            source = chunk.get("metadata", {}).get("source", "document")
+            content = chunk.get("document", chunk.get("content", ""))
+            if content:
+                doc_snippets.append(f"**[{source}]**\n{content[:600]}")
+        if doc_snippets:
+            sections.append(
+                "## Relevant Documents\n\n"
+                "The following excerpts from uploaded documents may be relevant:\n\n"
+                + "\n\n".join(doc_snippets)
+            )
 
     # --- Agent-specific prompt ---
     if agent_prompt:

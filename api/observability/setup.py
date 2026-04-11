@@ -39,7 +39,6 @@ def configure_logging() -> None:
     log_level = getattr(logging, level_name, logging.INFO)
 
     shared_processors = [
-        structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso", utc=True),
         _inject_request_ids,

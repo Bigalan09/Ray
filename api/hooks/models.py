@@ -22,8 +22,12 @@ class WebhookConfig(BaseModel):
 
 
 class PrePostHook(BaseModel):
-    trigger: str  # "command:exec", "tool:write_file", "tool:*", "command:*"
-    handler: str  # "webhook" | "log"
+    id: str = ""            # auto-assigned on creation
+    name: str = ""          # human label
+    type: str = "post"      # "pre" | "post"
+    trigger: str = "*"      # "command:exec", "tool:write_file", "tool:*", "command:*"
+    handler: str = "log"    # "webhook" | "log"
+    enabled: bool = True
     config: dict = {}
 
 

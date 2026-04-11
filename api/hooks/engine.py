@@ -65,16 +65,21 @@ class HookEngine:
             except Exception as exc:
                 log.warning("Invalid post_hook config: %s", exc)
 
-        # Runtime webhooks from workspace/hooks/
+        # Runtime webhooks from workspace/hooks/ (individual .yaml files, not rules.yaml)
         hooks_dir = settings.workspace_dir / "hooks"
         if hooks_dir.is_dir():
             for f in sorted(hooks_dir.glob("*.yaml")):
+                if f.name == "rules.yaml":
+                    continue
                 try:
                     with open(f) as fh:
                         data = yaml.safe_load(fh) or {}
                     self._webhooks.append(WebhookConfig(**data, source="runtime"))
                 except Exception as exc:
                     log.warning("Invalid runtime hook %s: %s", f.name, exc)
+
+        # Runtime rules from workspace/hooks/rules.yaml
+        self._load_rules_from_workspace()
 
         log.info(
             "Hooks loaded: %d webhooks, %d pre-hooks, %d post-hooks",
@@ -99,6 +104,8 @@ class HookEngine:
         """Run pre-hooks for a trigger. Returns {cancel: True, reason: ...} or None."""
         ctx = context or {}
         for hook in self._pre_hooks:
+            if not hook.enabled:
+                continue
             if not fnmatch.fnmatch(trigger, hook.trigger):
                 continue
             result = await self._run_hook(hook, trigger, ctx)
@@ -110,6 +117,8 @@ class HookEngine:
         """Fire-and-forget post-hooks for a trigger."""
         ctx = context or {}
         for hook in self._post_hooks:
+            if not hook.enabled:
+                continue
             if not fnmatch.fnmatch(trigger, hook.trigger):
                 continue
             asyncio.create_task(self._run_hook(hook, trigger, ctx))
@@ -225,6 +234,69 @@ class HookEngine:
         path = settings.workspace_dir / "hooks" / f"{name}.yaml"
         if path.exists():
             path.unlink()
+
+    # ------------------------------------------------------------------
+    # Rule CRUD (runtime pre/post hooks)
+    # ------------------------------------------------------------------
+
+    def list_rules(self) -> list[dict]:
+        return [r.model_dump() for r in self._pre_hooks + self._post_hooks]
+
+    def add_rule(self, data: dict) -> PrePostHook:
+        import uuid
+        rule = PrePostHook(**{**data, "id": data.get("id") or str(uuid.uuid4())[:8]})
+        if rule.type == "pre":
+            self._pre_hooks.append(rule)
+        else:
+            self._post_hooks.append(rule)
+        self._persist_rules()
+        return rule
+
+    def remove_rule(self, rule_id: str) -> bool:
+        before = len(self._pre_hooks) + len(self._post_hooks)
+        self._pre_hooks = [r for r in self._pre_hooks if r.id != rule_id]
+        self._post_hooks = [r for r in self._post_hooks if r.id != rule_id]
+        removed = (len(self._pre_hooks) + len(self._post_hooks)) < before
+        if removed:
+            self._persist_rules()
+        return removed
+
+    def toggle_rule(self, rule_id: str, enabled: bool) -> bool:
+        for rule in self._pre_hooks + self._post_hooks:
+            if rule.id == rule_id:
+                rule.enabled = enabled
+                self._persist_rules()
+                return True
+        return False
+
+    def _persist_rules(self):
+        """Save all runtime rules to workspace/hooks/rules.yaml."""
+        hooks_dir = settings.workspace_dir / "hooks"
+        hooks_dir.mkdir(parents=True, exist_ok=True)
+        rules_path = hooks_dir / "rules.yaml"
+        all_rules = [r.model_dump() for r in self._pre_hooks + self._post_hooks]
+        with open(rules_path, "w") as f:
+            yaml.safe_dump({"rules": all_rules}, f, default_flow_style=False)
+
+    def _load_rules_from_workspace(self):
+        """Load runtime rules from workspace/hooks/rules.yaml."""
+        rules_path = settings.workspace_dir / "hooks" / "rules.yaml"
+        if not rules_path.exists():
+            return
+        try:
+            with open(rules_path) as f:
+                data = yaml.safe_load(f) or {}
+            for r in data.get("rules", []):
+                try:
+                    rule = PrePostHook(**r)
+                    if rule.type == "pre":
+                        self._pre_hooks.append(rule)
+                    else:
+                        self._post_hooks.append(rule)
+                except Exception as exc:
+                    log.warning("Invalid rule in rules.yaml: %s", exc)
+        except Exception as exc:
+            log.warning("Failed to load rules.yaml: %s", exc)
 
     # ------------------------------------------------------------------
     # Log access

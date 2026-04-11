@@ -22,7 +22,6 @@ def _load_mcp_config() -> list[dict]:
     """Load MCP server configuration from workspace/mcp_servers.json."""
     config_path = settings.data_dir / "mcp_servers.json"
     if not config_path.exists():
-        # Also check config dir
         config_path = settings.config_dir / "mcp_servers.json"
     if not config_path.exists():
         return []
@@ -31,6 +30,81 @@ def _load_mcp_config() -> list[dict]:
     with open(config_path) as f:
         data = json.load(f)
     return data.get("servers", [])
+
+
+def _save_mcp_config(servers: list[dict]) -> None:
+    """Persist server list to workspace/mcp_servers.json."""
+    import json
+    config_path = settings.data_dir / "mcp_servers.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w") as f:
+        json.dump({"servers": servers}, f, indent=2)
+
+
+async def add_mcp_server(server_def: dict) -> dict:
+    """Add a new MCP server, persist it, and start it immediately."""
+    servers = _load_mcp_config()
+    name = server_def["name"]
+    if any(s["name"] == name for s in servers):
+        return {"error": f"Server '{name}' already exists."}
+    servers.append(server_def)
+    _save_mcp_config(servers)
+    if server_def.get("enabled", True):
+        await _start_server(server_def)
+    return {"success": True, "name": name}
+
+
+async def remove_mcp_server(name: str) -> dict:
+    """Stop and remove an MCP server by name."""
+    servers = _load_mcp_config()
+    new_servers = [s for s in servers if s["name"] != name]
+    if len(new_servers) == len(servers):
+        return {"error": f"Server '{name}' not found."}
+
+    # Stop the running instance
+    client = _servers.pop(name, None)
+    if client:
+        try:
+            await client.stop()
+        except Exception:
+            pass
+
+    # Remove its tools
+    stale = [k for k, v in _discovered_tools.items() if v["server_name"] == name]
+    for k in stale:
+        del _discovered_tools[k]
+    _server_configs.pop(name, None)
+
+    _save_mcp_config(new_servers)
+    return {"success": True, "name": name}
+
+
+async def toggle_mcp_server(name: str, enabled: bool) -> dict:
+    """Enable or disable a server. Starts it if enabling, stops if disabling."""
+    servers = _load_mcp_config()
+    target = next((s for s in servers if s["name"] == name), None)
+    if not target:
+        return {"error": f"Server '{name}' not found."}
+
+    target["enabled"] = enabled
+    _save_mcp_config(servers)
+
+    if enabled:
+        client = _servers.get(name)
+        if not client or not client.is_running:
+            await _start_server(target)
+    else:
+        client = _servers.pop(name, None)
+        if client:
+            try:
+                await client.stop()
+            except Exception:
+                pass
+        stale = [k for k, v in _discovered_tools.items() if v["server_name"] == name]
+        for k in stale:
+            del _discovered_tools[k]
+
+    return {"success": True, "name": name, "enabled": enabled}
 
 
 def _resolve_env(env_map: dict[str, str] | None) -> dict[str, str] | None:

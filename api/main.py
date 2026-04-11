@@ -109,11 +109,12 @@ app.include_router(ws.router)
 app.include_router(documents.router, prefix="/api")
 app.include_router(commands.router, prefix="/api")
 
-from routers import schedules, exec_router, hooks as hooks_router, skills as skills_router
+from routers import schedules, exec_router, hooks as hooks_router, skills as skills_router, settings as settings_router
 app.include_router(schedules.router, prefix="/api")
 app.include_router(exec_router.router, prefix="/api")
 app.include_router(hooks_router.router, prefix="/api")
 app.include_router(skills_router.router, prefix="/api")
+app.include_router(settings_router.router, prefix="/api")
 
 
 @app.get("/health")
@@ -136,6 +137,47 @@ async def metrics():
 @app.get("/api/mcp/status")
 async def mcp_status():
     return get_server_status()
+
+
+@app.post("/api/mcp/servers")
+async def add_mcp_server(body: dict):
+    from tools.mcp.manager import add_mcp_server as _add
+    name = body.get("name", "").strip()
+    command = body.get("command", "").strip()
+    if not name or not command:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="name and command are required")
+    server_def = {
+        "name": name,
+        "command": command,
+        "args": body.get("args", []),
+        "enabled": body.get("enabled", True),
+    }
+    if body.get("env"):
+        server_def["env"] = body["env"]
+    return await _add(server_def)
+
+
+@app.delete("/api/mcp/servers/{name}")
+async def remove_mcp_server(name: str):
+    from tools.mcp.manager import remove_mcp_server as _remove
+    return await _remove(name)
+
+
+@app.patch("/api/mcp/servers/{name}")
+async def toggle_mcp_server(name: str, body: dict):
+    from tools.mcp.manager import toggle_mcp_server as _toggle
+    if "enabled" not in body:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="enabled field required")
+    return await _toggle(name, body["enabled"])
+
+
+@app.post("/api/mcp/servers/{name}/restart")
+async def restart_mcp_server(name: str):
+    from tools.mcp.manager import _restart_server
+    success = await _restart_server(name)
+    return {"success": success, "name": name}
 
 
 @app.get("/api/scheduler/status")

@@ -68,3 +68,44 @@ async def get_hook_log(limit: int = 100):
 async def reload_hooks():
     hook_engine.load_config()
     return {"success": True, "webhooks": len(hook_engine.list_webhooks())}
+
+
+# --- Pre/Post Rule CRUD ---
+
+class CreateRuleRequest(BaseModel):
+    name: str = ""
+    type: str = "post"      # "pre" | "post"
+    trigger: str = "*"
+    handler: str = "log"    # "webhook" | "log"
+    enabled: bool = True
+    config: dict = {}
+
+
+@router.get("/hooks/rules")
+async def list_rules():
+    return hook_engine.list_rules()
+
+
+@router.post("/hooks/rules", status_code=201)
+async def create_rule(req: CreateRuleRequest):
+    rule = hook_engine.add_rule(req.model_dump())
+    return rule.model_dump()
+
+
+@router.delete("/hooks/rules/{rule_id}")
+async def delete_rule(rule_id: str):
+    if hook_engine.remove_rule(rule_id):
+        return {"success": True}
+    from fastapi import HTTPException
+    raise HTTPException(status_code=404, detail=f"Rule '{rule_id}' not found.")
+
+
+@router.patch("/hooks/rules/{rule_id}")
+async def toggle_rule(rule_id: str, body: dict):
+    if "enabled" not in body:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="enabled field required")
+    if hook_engine.toggle_rule(rule_id, body["enabled"]):
+        return {"success": True}
+    from fastapi import HTTPException
+    raise HTTPException(status_code=404, detail=f"Rule '{rule_id}' not found.")
