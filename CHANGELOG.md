@@ -2,115 +2,104 @@
 
 All notable changes to Ray are documented here.
 
-## [Unreleased] - 2026-04-10
+## [Unreleased] — 2026-04-11
+
+### Added
+- **Full E2E test suite** (`tests/e2e/full-coverage.spec.ts`): 100+ test cases across 20 describe blocks covering infrastructure/health, bootstrap, chat API, chat UI, slash commands, tools, LLM tool calls (live), web search (live), memory, background tasks, scheduled tasks, webhooks, exec guardrails, conversation CRUD, identity/workspace, MCP, skills, image upload, auth, and error handling. Live-LLM tests auto-skip without `OPENAI_API_KEY`.
+- **Docker E2E config** (`tests/playwright.docker.config.ts`): Playwright config connecting to a running Docker stack; no web server setup needed. Supports `npm run test:docker` and `npm run test:docker:full`.
+- **ISSUES.md**: Full codebase audit listing 33 known issues across P0–P4 with root causes, fix status, and a prioritised fix-order table.
+- **GHCR release pipeline** (`.github/workflows/release.yml`): Builds and pushes `ray-api` and `ray-ui` to `ghcr.io/bigalan09/` on version tags and manual dispatch. Multi-arch (`linux/amd64`, `linux/arm64`). Uses GHA layer caching per service.
+- **Production compose** (`docker-compose.ghcr.yml`): Compose file referencing pre-built GHCR images. Used by the one-liner installer.
+- **One-liner installer** (`install.sh`): `curl -fsSL .../install.sh | bash` — checks Docker, downloads compose + config, scaffolds `.env`, pulls images, starts Ray.
+
+### Changed
+- **Default model**: Changed from `gpt-5.4-mini` to `gpt-5-nano` in `config/models.yaml`.
+- **Rate limiting defaults**: Raised to `1200` req/min, `200` burst (was 120/20) to avoid throttling normal local UI traffic.
+- **README**: Completely rewritten — one-liner install, feature status table, updated architecture, GHCR release section, Docker testing commands.
+
+### Fixed
+- **LLM tool calls returning "internal error"**: `web_search_preview` was injected into every Responses API request unconditionally. `gpt-5-nano` returns HTTP 400 for this tool. Fixed by `_supports_web_search_preview(model)` in `api/llm/responses.py` — injection is now gated to models that support it.
+- **`_KEEPALIVE` dict rebuilt on every bootstrap call**: Was defined inside `event_generator()` scope. Moved to module level.
+- **`asyncio.wait` list vs set**: `asyncio.wait([task], ...)` was passing a list; `asyncio.wait` requires a set. Fixed to `asyncio.wait({task}, ...)`.
+- **Inner imports inside bootstrap `event_generator()`**: `load_workspace_file` and `_extract_user_name` were imported inside the nested generator function, re-importing on every bootstrap call. Hoisted to top-level.
+- **Ollama provider hung UI on error**: The error code path yielded an error SSE but not `[DONE]`, leaving the UI SSE parser waiting indefinitely. Added `yield "data: [DONE]"` before `return`.
+- **`web_search_preview` empty tools guard**: Empty `tools` list is no longer passed to the Responses API (was causing unnecessary `tools: []` in the request body).
+- **Model capability function syntax**: Standardised `_supports_temperature` and `_supports_web_search_preview` to use `!=` consistently.
+- **Citation extraction loop**: Added `break` after detecting `function_call` item type; removed unused `start_index`/`end_index` from citation dicts.
+- **Traefik 504 / 404 on ray.bigalan.dev**: Removed invalid Traefik v3 label `responseForwardingFlushInterval` (field does not exist in v3 — caused Traefik to reject the entire service config, producing 404 for all requests).
+
+---
+
+## [0.4.0] — 2026-04-10
 
 ### Added
 - **Hooks system**: Webhooks, lifecycle events, and pre/post command hooks. 12 events across chat, exec, tasks, and sessions. HTTP callbacks with HMAC-SHA256 signing, retry with backoff. Pre-hooks can cancel operations. Config in `config/hooks.yaml`, runtime webhooks in `workspace/hooks/`. UI panel in sidebar. `/hook` slash command. REST API at `/api/hooks/`.
 - **`/clear all` command**: Deletes all sessions. Also available via sidebar "Clear all sessions" button and `DELETE /api/conversations`.
-- **AGENTS.md**: Operating manual for AI coding agents. Defines red/green testing workflow, UI/UX standards, documentation requirements, and the feature checklist.
-- **Exec approval in input bar**: The exec confirmation card now replaces the message input area (Claude Code pattern) instead of appearing in the chat. The agent loop pauses via asyncio Event, waits for approval, then feeds the result back to the model.
-- **`/exec` command and `exec_command` tool**: Guardrailed system command execution. Only commands listed in `guardrails.yaml` under `exec.allow` can run. Both the slash command and agent tool enforce an inline Approve/Deny confirmation card before execution. Commands run sandboxed: `shell=False`, stripped environment, restricted working directory, enforced timeouts, and capped output. The agent can request commands via the `exec_command` tool but cannot bypass the user approval gate.
-- **OpenAI Responses provider**: Ray now uses the OpenAI API directly by default. Responses streaming events are normalised into the existing Chat Completions-style SSE chunks so the UI and agent loop do not need a rewrite.
-- **MCP server auto-restart**: Crashed MCP servers are automatically restarted when a tool call is attempted. Up to 3 retry attempts with backoff. Mid-request failures also trigger a restart and single retry.
-- **Rich tool call UI**: Rewritten ToolChips component shows expandable tool call details with arguments, results, and live status. During streaming, displays "Running filesystem / read_file..." with spinner. Completed calls show collapsible args/result blocks.
-- **System prompt capabilities listing**: Auto-generated section in the system prompt listing all available tools (built-in + MCP), skills, and slash commands so the agent knows what it can use.
-- **Node.js in API container**: Dockerfile now installs Node.js 20 + npm so MCP stdio servers (npx) can run inside the container.
+- **AGENTS.md**: Operating manual for AI coding agents. Defines red/green testing workflow, UI/UX conventions, documentation requirements, and the feature checklist.
+- **Exec approval in input bar**: The exec confirmation card now replaces the message input area (Claude Code pattern) instead of appearing inline in the chat stream. The agent loop pauses via asyncio Event, waits for approval, then feeds the result back to the model.
+- **`/exec` command and `exec_command` tool**: Guardrailed system command execution. Only commands listed in `config/guardrails.yaml` under `exec.allow` can run. Both the slash command and agent tool enforce an inline Approve/Deny confirmation card before execution. Commands run sandboxed: `shell=False`, stripped environment, restricted working directory, enforced timeouts, and capped output.
+- **OpenAI Responses API provider**: Ray now uses the OpenAI Responses API as the primary backend. Streaming events normalised into existing Chat Completions-style SSE chunks so the UI and agent loop need no changes.
+- **MCP server auto-restart**: Crashed MCP servers restart automatically when a tool call is attempted. Up to 3 retries with backoff. Mid-request failures also trigger a restart and single retry.
+- **Rich tool call UI**: Rewritten ToolChips component shows expandable tool call details with arguments, results, and live status. During streaming: "Running filesystem / read_file..." with spinner. Completed calls show collapsible args/result blocks.
+- **System prompt capabilities listing**: Auto-generated section listing all available tools (built-in + MCP), skills, and slash commands so the agent knows what it can use.
+- **Node.js in API container**: Dockerfile installs Node.js 20 + npm so MCP stdio servers (`npx`) can run inside the container.
 
 ### Changed
-- **Tool SSE events enriched**: `ray_tool` events now include `arguments` (on "running") and `result` (on "success"/"error"), truncated to 2KB for the SSE stream.
-- **Chat routing simplified**: Removed the Azure AI Foundry `agent_reference` branch. Chat and background tasks now run through the configured provider with one local tool-calling path.
-- **Slash command registration**: Commands now register through an explicit `register_all_commands()` entry point instead of router import side effects.
-- **Playwright support code**: Shared env loading, SSE parsing, and retry helpers now live under `tests/support/` instead of being duplicated across specs and configs.
-- **Repo entrypoints and docs**: Root `package.json` now provides the canonical Playwright and UI shortcuts, and current docs consistently point at `workspace/` for runtime state.
-- **Default model**: Ray now defaults to `gpt-5-nano` via `config/models.yaml` instead of `gpt-5.4-mini`.
-- **Rate limiting defaults**: The limiter is now configurable via `.env` and defaults to `1200` req/min with a `200` request burst to avoid collapsing normal local UI traffic.
+- **Tool SSE events enriched**: `ray_tool` events now include `arguments` (on "running") and `result` (on "success"/"error"), truncated to 2KB.
+- **Chat routing simplified**: Removed Azure AI Foundry `agent_reference` branch. Chat and background tasks now run through the configured provider with one local tool-calling path.
+- **Slash command registration**: Commands register through an explicit `register_all_commands()` entry point instead of router import side effects.
+- **Playwright support code**: Shared env loading, SSE parsing, and retry helpers live under `tests/support/` instead of being duplicated across specs.
+- **Default model**: Switched to `gpt-5-nano` via `config/models.yaml`.
+- **Rate limiting defaults**: `1200` req/min, `200` burst.
 
 ### Fixed
-- **Chat persistence**: Direct chat responses now skip persistence when the conversation is missing instead of logging foreign key failures.
+- **Chat persistence**: Direct chat responses skip persistence when the conversation is missing instead of logging foreign key failures.
 - **Hook emission**: `response_persisted` and tool execution hooks no longer fail from an out-of-scope `hook_engine`.
-- **Conversation creation failures**: The UI now stops cleanly when conversation creation fails instead of posting to `/api/conversations/undefined/messages`.
+- **Conversation creation failures**: UI stops cleanly when conversation creation fails instead of posting to `/api/conversations/undefined/messages`.
 
 ### Removed
-- **Dead local action bridge**: Removed the obsolete marker-based local action module that was no longer used by the runtime tool-calling path.
+- **Dead local action bridge**: Removed the obsolete marker-based local action module.
+- **Azure Assistants API code**: `create_thread`, `add_message_to_thread`, `run_assistant_stream`, and related helpers.
+- **`azure-ai-projects` dependency**: Replaced by direct OpenAI client with correct base URL.
 
-## 2026-04-08
+---
+
+## [0.3.0] — 2026-04-08
 
 ### Added
-- **Bootstrap enforcement**: BOOTSTRAP.md now includes strict rules preventing the agent from going off-topic during onboarding. User messages are wrapped with a bootstrap mode reminder so the LLM cannot drift.
-- **Workspace context injection for Azure agents**: Post-bootstrap sessions inject SOUL.md, USER.md, IDENTITY.md, and memory files as a user-assistant pair for Azure AI Foundry agents (which ignore system messages). This fixes new sessions losing personality and context.
-- **`build_workspace_context()`**: New prompt builder function that assembles condensed workspace context for non-system-message paths.
-- **Bootstrap finalization buffering**: `/bootstrap done` (redirect path) now buffers the LLM response silently and returns a clean command result instead of streaming raw markdown to the UI.
-- **E2E tests for bootstrap and session context**: Playwright test suite covering bootstrap done output format, enforcement, identity file access, and session context preservation.
-
-- **Schedule panel UI**: Sidebar "Scheduled" button opens a panel listing all cron schedules with next-run times. "+ New task" modal with name, prompt, frequency presets (hourly, daily, weekdays, weekly, custom cron), and time picker. Full CRUD via `GET/POST/DELETE /api/schedules`.
-- **Tool call notifications**: Structured `ray_tool` SSE events during direct streaming tool calls (running/success/error). UI shows collapsible "Used N tools" chip above assistant messages.
-- **Message action buttons**: Copy (clipboard with checkmark feedback) and Resend (user messages only) buttons on hover.
-- **System prompt viewer**: `{ }` button in the status bar opens a modal showing the fully assembled system prompt split into numbered sections. Also available at `GET /api/identity/system-prompt`.
-- **Task conversations**: Background/scheduled tasks create conversation threads visible under "Automation" in the sidebar. Full prompt and result saved as messages.
+- **Bootstrap enforcement**: BOOTSTRAP.md rules prevent the agent from drifting off-topic during onboarding.
+- **Workspace context injection**: Post-bootstrap sessions inject SOUL.md, USER.md, IDENTITY.md, and memory files into the system prompt.
+- **Schedule panel UI**: Sidebar "Scheduled" button opens a panel with cron schedules, next-run times, and a "+ New task" modal. Full CRUD via `GET/POST/DELETE /api/schedules`.
+- **Tool call notifications**: Structured `ray_tool` SSE events during tool calls (running/success/error). UI shows collapsible "Used N tools" chip above assistant messages.
+- **Message action buttons**: Copy and Resend buttons on hover.
+- **System prompt viewer**: `{ }` button in the status bar opens a modal with the fully assembled system prompt split into numbered sections. Also at `GET /api/identity/system-prompt`.
+- **Task conversations**: Background/scheduled tasks create conversation threads visible under "Automation" in the sidebar.
 
 ### Changed
-- **Azure config simplified**: `_is_assistants_model()` replaced with `_use_azure_agent()`. No more `assistants: true` flags in models.yaml. Routing is based on project endpoint + agent ID presence. Agent ID must be in `.env` (no longer hardcoded).
-- **`/bootstrap done` output**: Now shows `Updated IDENTITY.md, SOUL.md, USER.md.` followed by `Hi {name}, how can I help?` instead of displaying raw markdown file contents in chat.
-- **Bootstrap assistant pre-commitment**: The injected assistant message now explicitly states compliance with bootstrap mode and refusal of unrelated questions.
+- **`/bootstrap done` output**: Shows `Updated IDENTITY.md, SOUL.md, USER.md.` followed by `Hi {name}, how can I help?` instead of raw markdown file contents.
 
-### Previously added
-- **Local action bridge**: Post-processes Azure agent responses to detect and execute local actions (memory storage, schedule creation). Bridges the gap between the Azure agent and Ray's local capabilities.
-- **`/schedule` command**: Create, list, and remove cron-scheduled tasks from chat. Supports natural language ("daily at 8am") via LLM parsing. Schedules persist to workspace/schedules.yaml.
+---
+
+## [0.2.0] — 2026-04-05
+
+### Added
+- **`/schedule` command**: Create, list, and remove cron-scheduled tasks from chat. Supports natural language parsing.
 - **`/compact` command**: Summarise conversation to reduce token usage.
-- **Daily memory logs**: Memory now writes to `memory/YYYY-MM-DD.md` files (OpenClaw convention). Prompt builder loads today + yesterday.
-- **Context file trimming**: Large workspace files capped at 4000 chars with truncation marker.
-- **TOOLS.md and MEMORY.md**: Added to workspace (OpenClaw convention).
-- **Workspace separation**: `workspace/` is Ray's personal state (gitignored). `workspace-template/` ships with the repo and seeds on first run.
 - **`/file write` command**: Write files to the workspace directory.
-- **Azure AI Foundry integration**: Replaced Assistants API with Responses API using `agent_reference`. The agent's model, tools, and instructions are managed in Azure AI Foundry, not locally.
-- **Security middleware**: Auth (API key via `X-API-Key` header), rate limiting (120 req/min, 20 burst/sec), and audit logging now enforced on all non-public routes.
-- **Slash commands**: Type `/` in chat for interactive commands. Commands are detected before LLM routing and handled server-side.
-  - `/help` - List available commands
-  - `/clear` - Clear the conversation
-  - `/status` - System status (MCP, tasks, scheduler)
-  - `/agent [name]` - Switch agent or list agents
-  - `/tool [name] [json]` - Execute a tool directly or list tools
-  - `/task [prompt]` - Create background tasks from chat
-  - `/task status [id]` - Check task status
-  - `/task cancel [id]` - Cancel a task
-  - `/file read|list|search <path>` - Workspace-scoped file operations
-  - `/skill [name] [input]` - Run saved prompt templates
-- **Skills system**: Prompt templates in `config/skills.yaml` invocable via `/skill`. Skills redirect rendered prompts through the normal LLM path with the specified agent.
-- **UI autocomplete**: Typing `/` in the input shows a dropdown of available commands with keyboard navigation (arrows, Tab, Escape).
-- **Tool highlighting**: `**Tool:** name` patterns in messages render with a styled badge.
-- **Error handling with retry**: Backend retries transient errors (429, 5xx) with exponential backoff. UI shows error messages with a Retry button.
-- **WebSocket task broadcasts**: `broadcast_task_update()` now fires after every task status change (RUNNING, COMPLETED, FAILED).
-- **Agent memory**: `data/memory.md` stores session notes and context, loaded into the agent system prompt alongside SOUL.md and ME.md.
-- **Structured SSE error events**: `{"type": "error", "message": "...", "retryable": bool}` for frontend error handling.
-- **Live integration tests**: 5 tests that hit the real Azure AI Foundry agent, verifying the full pipeline.
+- **Image support**: Paste or drag-and-drop images into chat. Sent as base64.
+- **Claude-style sidebar**: Time-grouped sessions (Today, Yesterday, Older), hamburger toggle.
+- **Security middleware**: Auth (API key via `X-API-Key` header), rate limiting, and audit logging on all non-public routes.
+- **Slash commands**: `/help`, `/clear`, `/status`, `/agent`, `/tool`, `/task`, `/file`, `/skill`.
+- **Skills system**: Prompt templates in `config/skills.yaml` invocable via `/skill`.
+- **UI autocomplete**: `/` in the input shows a dropdown of available commands with keyboard navigation.
 
-### Changed
-- **UI simplified**: Removed model and agent selector dropdowns. The Azure agent handles model and routing. Header shows only Ray title, Tasks, MCP, and New Chat.
-- **UI consistency**: Extracted CSS custom properties for colours, standardised borders, rounding, button styles, focus states, and typography across all components.
-- **Chat payload**: No longer sends `current_agent` or `agent` fields. Backend defaults to auto-routing for direct models, and agent_reference for Azure models.
-- **`_is_assistants_model()`**: Now accepts `models_config` parameter (avoids duplicate YAML reads) and checks that `AZURE_EXISTING_AIPROJECT_ENDPOINT` is configured.
-- **`_load_schedules()`**: Fixed null handling for empty YAML keys (`config.get("schedules") or []`).
-- **Singleton OpenAI client**: Added `shutdown_client()` registered in FastAPI lifespan for clean shutdown.
+---
 
-### Fixed
-- **Docker build**: Pinned Bun to 1.2 for `build.onBeforeParse` compatibility. Removed `bunfig.toml` during build to prevent preload conflict.
-- **FastAPI/ChromaDB conflict**: Loosened `fastapi` pin to `>=0.115.9,<0.116.0`.
-- **SSL certificate error**: Azure OpenAI clients now respect `tls_verify` setting for corporate TLS inspection proxies.
-- **UI production server**: `index.tsx` now serves from `dist/` in production mode, fixing blank page on Docker deployment.
-- **`.env` API version**: Fixed `AZURE_OPENAI_API_VERSION` which was set to a model name instead of a version string.
+## [0.1.0] — 2026-04-01
 
-- **OpenClaw-aligned bootstrap**: First-run onboarding where Ray discovers its identity through conversational Q&A. Writes IDENTITY.md, SOUL.md, and USER.md to data/.
-- **System prompt builder**: Structured prompt assembly from workspace files in OpenClaw order (SOUL, IDENTITY, USER, Safety, Tooling, Memory, Runtime).
-- **Identity file overlay**: `data/` overrides `config/` for identity files, fixing Docker read-only mount writes.
-- **IDENTITY.md**: New workspace file for agent self-identity (name, vibe, emoji).
-- **USER.md**: Renamed from ME.md (OpenClaw convention, backward compat kept).
-- **BOOTSTRAP.md**: Onboarding template in config/.
-- **Image support**: Paste or drag-and-drop images into chat. Sent as base64 via Azure Responses API `input_image` format.
-- **Claude-style sidebar**: Time-grouped sessions (Today, Yesterday, Older), hamburger toggle, actions moved to sidebar.
-- **README.md**: Comprehensive project documentation.
-
-### Removed
-- Azure Assistants API code (create_thread, add_message_to_thread, run_assistant_stream, etc.)
-- `azure-ai-projects` dependency (bypassed in favour of direct OpenAI client with correct base URL)
-- Model and agent dropdown components from UI
-- `/agent` command (Ray is the single user-facing agent; sub-agents are internal)
+### Added
+- Initial release: FastAPI backend, React/Bun UI, Docker Compose stack.
+- OpenAI Responses API streaming, SQLite conversations, ChromaDB memory.
+- YAML agent config, MCP stdio client, background tasks, cron scheduler.
+- Bootstrap onboarding (SOUL.md, USER.md, IDENTITY.md).
+- Built-in tools: calculator, get_current_time, web_search, memory_store, memory_search, read_file, write_file, list_files, exec_command.
