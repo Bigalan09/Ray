@@ -70,6 +70,64 @@ services:
     networks:
       - ray-net
 
+  # --- Observability stack ---
+
+  ray-prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+    networks:
+      - ray-net
+
+  ray-loki:
+    image: grafana/loki:3.3.2
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./config/loki.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/config.yml
+    networks:
+      - ray-net
+
+  ray-promtail:
+    image: grafana/promtail:3.3.2
+    volumes:
+      - ./config/promtail.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - ray-loki
+    networks:
+      - ray-net
+
+  ray-grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=ray
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_FEATURE_TOGGLES_ENABLE=lokiExploreLogsEnabled
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - ray-prometheus
+      - ray-loki
+    networks:
+      - ray-net
+
   # Uncomment for local model inference
   # ray-ollama:
   #   image: ollama/ollama
@@ -87,4 +145,7 @@ networks:
 volumes:
   chroma-data:
   redis-data:
+  prometheus-data:
+  loki-data:
+  grafana-data:
   # ollama-data:

@@ -1,0 +1,20 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    url: http://ray-prometheus:9090
+    access: proxy
+    isDefault: false
+    jsonData:
+      timeInterval: "15s"
+
+  - name: Loki
+    type: loki
+    uid: loki
+    url: http://ray-loki:3100
+    access: proxy
+    isDefault: true
+    jsonData:
+      maxLines: 1000

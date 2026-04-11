@@ -1,0 +1,194 @@
+{
+  "title": "Ray Observability",
+  "uid": "ray-main",
+  "version": 1,
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP Requests / min",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(ray_http_requests_total[1m]) * 60",
+          "legendFormat": "{{method}} {{path}} {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "HTTP p95 Latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(ray_http_request_duration_seconds_bucket[5m])) * 1000",
+          "legendFormat": "p95 {{path}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "LLM Requests / min",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(ray_llm_requests_total[1m]) * 60",
+          "legendFormat": "{{model}} — {{finish_reason}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "LLM Tokens / min",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(ray_llm_tokens_total[1m]) * 60",
+          "legendFormat": "{{type}} — {{model}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "LLM p95 Latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(ray_llm_request_duration_seconds_bucket[5m])) * 1000",
+          "legendFormat": "p95 {{model}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "LLM Retries / min",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(ray_llm_retries_total[1m]) * 60",
+          "legendFormat": "{{model}} status={{status}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Tool Calls / min",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(ray_tool_calls_total[1m]) * 60",
+          "legendFormat": "{{tool}} — {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Tool p95 Latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(ray_tool_call_duration_seconds_bucket[5m])) * 1000",
+          "legendFormat": "p95 {{tool}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Chat Requests / min",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(ray_chat_requests_total[1m]) * 60",
+          "legendFormat": "{{agent}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "LLM Request Logs",
+      "type": "logs",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 18 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "expr": "{service=~\"ray-api|ray-worker\"} | json | event =~ \"llm_request|llm_response|llm_retry\"",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Tool Call Logs",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "expr": "{service=~\"ray-api|ray-worker\"} | json | event = \"tool_call\"",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Error Logs",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 36 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "expr": "{service=~\"ray-api|ray-worker\"} | json | level = \"error\" or level = \"warning\"",
+          "legendFormat": ""
+        }
+      ]
+    }
+  ]
+}
