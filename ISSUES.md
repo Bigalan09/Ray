@@ -1,6 +1,6 @@
 # Ray — Known Issues & Feature Gaps
 
-Last updated: 2026-04-11. Generated from full codebase audit.
+Last updated: 2026-04-11. Generated from full codebase audit + E2E gap review.
 
 ---
 
@@ -10,51 +10,51 @@ Last updated: 2026-04-11. Generated from full codebase audit.
 **Symptom**: Sending a message that triggers a tool call (e.g. "what time is it?", "calculate 2+2") shows an inline error bubble instead of a result.  
 **Root cause (confirmed)**: `web_search_preview` was injected into every Responses API request unconditionally. `gpt-5-nano` (the default model) does not support this tool — the API returns a 400 which surfaces as an internal error.  
 **Status**: Fixed in `cc5e145`. `_supports_web_search_preview(model)` now gates injection.  
-**Test gap**: No E2E test verifies LLM-triggered tool calls end-to-end.
+**Test gap**: Covered in full-coverage.spec.ts §7 "LLM tool calls (live)".
 
 ### 2. Chat may show duplicate messages after reload
 **Symptom**: After the bootstrap greeting, the trigger message `[starting up for the first time]` was persisted to the DB but not shown in UI state. Selecting the conversation loaded both, making the greeting appear to repeat.  
 **Root cause (confirmed)**: `streamResponse` saved all `msgHistory` messages to the DB unconditionally, including the internal bootstrap trigger.  
 **Status**: Fixed in `305ccd3`. Bootstrap call now passes `saveMessages=false`.  
-**Test gap**: No regression test covering bootstrap → reload → message count.
+**Test**: Covered in full-coverage.spec.ts "bootstrap doesn't persist trigger message".
 
 ### 3. `/bootstrap done` gateway timeout on slow LLMs
 **Symptom**: First `/bootstrap done` call returns a Traefik 504. Reloading then shows the greeting correctly.  
 **Root cause (confirmed)**: `_finalize_bootstrap` buffered the entire LLM response before yielding any SSE — Traefik killed the idle connection.  
 **Status**: Fixed in `0d95b1a`. Keepalive pings every 4 s via `asyncio.wait`.  
-**Test gap**: No test verifies the keepalive flow under a simulated slow LLM.
+**Test gap**: No test verifies keepalive flow under a simulated slow LLM.
 
 ---
 
 ## P1 — Core Feature Gaps
 
-### 4. Web search citations not rendered in UI
-**Symptom**: The `web_search_preview` native tool (for models that support it) and the `web_search` function tool both return results, but no citation cards appear in the chat.  
-**Status**: Citation card component added in `e177f45` for `web_search_preview` events (`ray_citations` SSE). Function tool results are not cited.  
-**Remaining gap**: `web_search` (DuckDuckGo function tool, used by `gpt-5-nano`) returns markdown text — no structured citations. If the model returns inline URLs they appear as markdown links, not citation cards.  
-**Fix needed**: Either (a) parse the `web_search` tool result for URLs and emit `ray_citations`, or (b) return structured `{results: [{url, title, snippet}]}` from the tool and map to `ray_citations` in the SSE stream.
-
-### 5. Memory recall not wired into chat context
+### 4. Memory recall not wired into chat context
 **Symptom**: `memory_store` and `memory_search` tools exist and work via `/tool` command, but the LLM does not automatically recall relevant memories before responding.  
-**Status**: ChromaDB endpoints work. Proactive injection (plan item 9) was designed but not implemented.  
-**Fix needed**: In `_chat_direct()` (`api/routers/chat.py`), run `memory_search(last_user_msg, limit=4)` before building the system prompt and inject results into `build_agent_context()`. See plan `tender-tinkering-sprout.md` § Proactive memory injection.
+**Status**: ChromaDB endpoints work. Proactive injection designed but not implemented.  
+**Fix needed**: In `_chat_direct()` (`api/routers/chat.py`), run `memory_search(last_user_msg, limit=4)` before building the system prompt and inject results into `build_agent_context()`.
 
-### 6. PDF / file upload has no RAG ingestion pipeline
+### 5. Memory panel absent
+The full memory API (`/api/memory/search`, `/api/memory/store`, `/api/memory/list`) works. There is no UI to browse, search, or delete memories. Users must use `/tool memory_search {}` from chat.  
+**Fix needed**: Sidebar panel with search input, paginated result list, and delete per-entry.
+
+### 6. Web search citations not rendered for function tool results
+**Symptom**: `web_search_preview` (models that support it) emits `ray_citations` and renders citation cards. The `web_search` DuckDuckGo function tool (used by `gpt-5-nano`) returns plain text — no structured citations.  
+**Status**: Citation cards implemented for `web_search_preview` in `e177f45`. Function tool gap remains.  
+**Fix needed**: Return `{results: [{url, title, snippet}]}` from `web_search` tool and map to `ray_citations` in the SSE layer.
+
+### 7. PDF / file upload has no RAG ingestion pipeline
 **Symptom**: The upload button accepts files. The `/api/documents` endpoint and chunking utilities exist. But uploaded files are never chunked, embedded, or stored in ChromaDB — so they can never be recalled.  
-**Status**: `test_rag.py` tests chunking in isolation. `FileUpload` component POSTs to `/api/documents` but backend processor is a stub.  
-**Fix needed**: Implement `api/routers/documents.py` — accept upload → split into chunks → embed via ChromaDB → store. Then inject relevant chunks into system prompt on each turn (same as memory injection above).
+**Status**: `test_rag.py` tests chunking in isolation. `FileUpload` POSTs to `/api/documents` but the backend processor is a stub.  
+**Fix needed**: `api/routers/documents.py` — accept upload → chunk → embed via ChromaDB → store. Inject relevant chunks into system prompt on each turn.
 
-### 7. Model switching has no UI
+### 8. Model switching has no UI
 **Symptom**: Users cannot change from `gpt-5-nano` to any other configured model without editing `config/models.yaml`.  
 **Status**: `GET /api/models` returns all configured models. No dropdown exists in the UI header.  
-**Fix needed**: Add a `<select>` or combobox in the Header component; pass `model_id` in the `POST /api/chat` body; wire `resolve_model_provider` to use it.
+**Fix needed**: Add a model combobox in the Header; pass `model_id` in `POST /api/chat`; wire `resolve_model_provider`.
 
 ---
 
 ## P2 — Missing UI for Working Backend Features
-
-### 8. Memory panel absent
-The full memory API (`/api/memory/search`, `/api/memory/store`, `/api/memory/list`) works. There is no UI to browse, search, or delete memories. Users must use `/tool memory_search {}` from chat.
 
 ### 9. Workspace file editors absent
 `PUT /api/identity/soul`, `/api/identity/me`, `/api/identity/identity` all work. No UI to edit `SOUL.md` / `USER.md` / `IDENTITY.md`. Users must use `/file write` from chat.
@@ -79,76 +79,101 @@ No UI for editing rate limits, exec allow-list, model defaults, or any other con
 ## P3 — Test Gaps
 
 ### 15. No E2E test for LLM-driven tool call flow
-Existing tests call `/api/tools/execute` directly. No test sends a natural-language message like "what's 42 * 7?" and verifies the LLM picks `calculator`, streams a `ray_tool` event, and displays the result.
+**Status**: Covered in full-coverage.spec.ts §7 (live, skips without API key).
 
 ### 16. No E2E test for memory store → recall
-No test stores a fact via `memory_store`, then starts a new conversation and asks a related question to verify the fact appears in the response.
+**Status**: Covered in full-coverage.spec.ts §9 (API + `/tool` via chat).  
+**Remaining gap**: No test for proactive recall — store a fact, start a new conversation, ask a related question, verify it appears in the LLM response without explicit `/tool` invocation. Blocked until #4 is implemented.
 
 ### 17. No E2E test for web search end-to-end
-No test verifies the full path: user asks a question → LLM triggers `web_search` → results appear in response text.
+**Status**: Covered in full-coverage.spec.ts §8 (live).
 
 ### 18. No E2E test for image upload → multimodal response
-`FileUpload` accepts images. No test uploads an image and verifies the assistant can describe it.
+**Status**: Partial — tests upload button presence and `POST /api/documents` acceptance.  
+**Remaining gap**: No test uploads an actual image and verifies the LLM describes its contents. Requires `page.setInputFiles()` interaction + live LLM.
 
 ### 19. No E2E test for background task lifecycle
-No test creates a task via `/task`, polls until it completes, and verifies the result appears in the tasks panel.
+**Status**: Covered in full-coverage.spec.ts §10 including poll-until-complete (live).
 
-### 20. No E2E test for scheduled task create → list → disable
-No test creates a cron schedule, verifies it appears in the Scheduled panel, and disables it.
+### 20. No E2E test for scheduled task create → list → **disable**
+**Status**: Create + list covered in full-coverage.spec.ts §11.  
+**Remaining gap**: No test disables a schedule and verifies it no longer appears as enabled.
 
 ### 21. No E2E test for auth enforcement
-No test generates an API key, then verifies that requests without it return 401.
+**Status**: Covered in full-coverage.spec.ts §19 (skips if auth not enabled).
 
-### 22. No E2E test for exec approval flow (full UI path)
-`exec.spec.ts` covers the command parsing. No test sends `/exec git status` from the chat UI and clicks the Approve button.
+### 22. No E2E test for exec approval full UI path
+**Status**: Disallowed command rejection covered. Blocked command + metacharacter tests covered.  
+**Remaining gap**: No test sends `/exec git status` from the chat UI, waits for the approval card, clicks Approve, and verifies the command output appears.
 
 ### 23. No Docker-stack E2E config
-All current tests use `reuseExistingServer` against a locally-started dev server. No config exists to run tests against the production Docker stack (`docker compose up`).
+**Status**: Fixed — `tests/playwright.docker.config.ts` + `npm run test:docker` added in `706c8ab`.
 
 ### 24. Bootstrap → reload → no duplicates regression
-No test verifies that after bootstrap completes and the page is reloaded, only the greeting appears (not the internal trigger).
+**Status**: Covered in full-coverage.spec.ts (live, skips if already bootstrapped).
+
+### 25. No E2E test for image upload → multimodal LLM response *(new)*
+No test uses `page.setInputFiles()` to attach a real image, sends it with a question, and verifies the assistant describes the image content. Blocked until the file input is directly accessible (currently behind a button click that opens OS picker).
+
+### 26. No E2E test for schedule disable *(new)*
+No test creates a schedule via `POST /api/schedules`, then PATCHes `enabled: false`, and verifies the schedule panel shows it as disabled and the scheduler no longer runs it.
+
+### 27. No E2E test for exec Approve button in UI *(new)*
+No test exercises the full approval card flow: send `/exec git status` → wait for approval card to render → click Approve → verify command output appears in chat. The card exists in `exec.spec.ts` parsing tests but the UI click path is untested.
 
 ---
 
 ## P4 — Code Quality / Architecture
 
-### 25. Two model capability functions duplicating `gpt-5-nano` knowledge
-`_supports_temperature` and `_supports_web_search_preview` in `api/llm/responses.py` both hardcode `"gpt-5-nano"`. If a third capability is added, a third function appears. Should be a central `_MODEL_CAPS` dict.  
+### 28. Two model capability functions duplicating `gpt-5-nano` knowledge
+`_supports_temperature` and `_supports_web_search_preview` in `api/llm/responses.py` both hardcode `"gpt-5-nano"`. Should be a central `_MODEL_CAPS` dict.  
 **Status**: Syntax inconsistency fixed in `d2a52ed`. Central registry not yet done.
 
-### 26. `auto_title()` LLM call has no timeout
-The async `_llm_title()` call fires and forgets. If the OpenAI API is slow or unavailable, the title stays "New Chat" indefinitely. No timeout or fallback is set.
+### 29. `auto_title()` LLM call has no timeout
+The async `_llm_title()` call fires and forgets. If the OpenAI API is slow or unavailable, the title stays "New Chat" indefinitely with no fallback.
 
-### 27. `_finalize_bootstrap` re-imports inside inner function
-`from agents.prompt_builder import load_workspace_file` and `from commands.builtin import _extract_user_name` are imported inside `event_generator()`. These should be top-level imports.
+### 30. `OllamaProvider.stream_chat` did not emit `[DONE]` on error path
+If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang waiting for `[DONE]`.  
+**Status**: Fixed in `706c8ab`.
 
-### 28. `OllamaProvider.stream_chat` does not emit `[DONE]` on error path
-If the Ollama HTTP call fails before the `for` loop, the function yields an error SSE and returns — but never yields `data: [DONE]`. The UI's SSE parser waits for `[DONE]` to finalize the message, leaving it stuck.
+### 31. `asyncio.wait` called with a list, not a set
+`asyncio.wait([task], ...)` constructs a new list per iteration; `asyncio.wait` requires a set.  
+**Status**: Fixed in `706c8ab`.
 
-### 29. `asyncio.wait` called with a list, not a set
-`asyncio.wait([task], timeout=4)` in `chat.py` constructs a new `list` each iteration. `asyncio.wait` requires an awaitable set — it converts internally but this is wasteful. Pass `{task}`.
+### 32. Inner imports inside `event_generator()` in `_finalize_bootstrap`
+`from agents.prompt_builder import load_workspace_file` and `from commands.builtin import _extract_user_name` were imported inside the nested function, re-running on every bootstrap call.  
+**Status**: Fixed in `706c8ab`.
 
-### 30. Pre/post command hook rules have no UI and no test coverage
+### 33. Pre/post command hook rules have no UI and no test coverage
 The hook engine emits all events. Webhook CRUD is UI-visible and tested. But the `pre_command` / `post_command` rule type (which can cancel operations) is untested and has no management UI.
 
 ---
 
-## Ordered Fix Plan
+## Prioritised Fix Order
 
-| Priority | Issue | Effort | Impact |
-|----------|-------|--------|--------|
-| P0 | LLM tool call errors (#1) | Fixed ✓ | Blocking |
-| P0 | Duplicate bootstrap messages (#2) | Fixed ✓ | Blocking |
-| P0 | Bootstrap SSE timeout (#3) | Fixed ✓ | Blocking |
-| P1 | Memory proactive injection (#5) | Medium | High |
-| P1 | Web search citation for function tool (#4) | Small | Medium |
-| P1 | PDF RAG pipeline (#6) | Large | Medium |
-| P1 | Model switcher UI (#7) | Small | High |
-| P2 | Memory panel UI (#8) | Medium | Medium |
-| P2 | Workspace file editors (#9) | Small | Low |
-| P2 | API key management UI (#10) | Small | Low |
-| P2 | MCP server form (#11) | Medium | Low |
-| P3 | Full E2E test suite (#15–24) | Large | High |
-| P4 | Ollama `[DONE]` on error (#28) | Tiny | Low |
-| P4 | Import hoisting (#27) | Tiny | Low |
-| P4 | asyncio.wait set (#29) | Tiny | Low |
+| # | Issue | Effort | Impact | Status |
+|---|-------|--------|--------|--------|
+| 1 | LLM tool call errors | — | Blocking | ✅ Fixed cc5e145 |
+| 2 | Duplicate bootstrap messages | — | Blocking | ✅ Fixed 305ccd3 |
+| 3 | Bootstrap SSE gateway timeout | — | Blocking | ✅ Fixed 0d95b1a |
+| 30 | Ollama missing [DONE] | Tiny | Low | ✅ Fixed 706c8ab |
+| 31 | asyncio.wait set | Tiny | Low | ✅ Fixed 706c8ab |
+| 32 | Inner imports in bootstrap | Tiny | Low | ✅ Fixed 706c8ab |
+| 4 | Memory proactive injection | Medium | **High** | ⬜ Todo |
+| 5 | Memory panel UI | Medium | **High** | ⬜ Todo |
+| 8 | Model switcher UI | Small | **High** | ⬜ Todo |
+| 6 | Web search citations (function tool) | Small | Medium | ⬜ Todo |
+| 27 | E2E: exec Approve button UI | Small | Medium | ⬜ Todo |
+| 26 | E2E: schedule disable | Small | Medium | ⬜ Todo |
+| 25 | E2E: image upload → multimodal response | Medium | Medium | ⬜ Todo |
+| 7 | PDF RAG pipeline | Large | Medium | ⬜ Todo |
+| 9 | Workspace file editors UI | Small | Low | ⬜ Todo |
+| 10 | API key management UI | Small | Low | ⬜ Todo |
+| 11 | MCP server form | Medium | Low | ⬜ Todo |
+| 12 | Settings panel | Large | Low | ⬜ Todo |
+| 13 | `/agent` slash command | Small | Low | ⬜ Todo |
+| 14 | Skill builder UI | Medium | Low | ⬜ Todo |
+| 16 | E2E: proactive memory recall | Small | Low | ⬜ Blocked by #4 |
+| 29 | auto_title timeout/fallback | Tiny | Low | ⬜ Todo |
+| 28 | Central model capabilities registry | Small | Low | ⬜ Todo |
+| 33 | Pre/post hook UI + tests | Large | Low | ⬜ Todo |
