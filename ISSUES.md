@@ -50,7 +50,7 @@ Last updated: 2026-04-11. Generated from full codebase audit + E2E gap review.
 ## P2 — Missing UI for Working Backend Features
 
 ### 9. Workspace file editors absent
-`PUT /api/identity/soul`, `/api/identity/me`, `/api/identity/identity` all work. No UI to edit `SOUL.md` / `USER.md` / `IDENTITY.md`. Users must use `/file write` from chat.
+**Status**: Fixed. `WorkspacePanel.tsx` — three-tab panel (Soul / User / Identity) with load, edit, and save. Accessible via the "Workspace" nav button. Backed by existing `GET/PUT /api/identity/{soul,me,identity}` endpoints.
 
 ### 10. API key management absent
 Auth middleware enforces `X-API-Key` when `workspace/api_key` exists. No UI to generate, reveal, or rotate the key. Users must call `POST /api/auth/generate-key` manually.
@@ -158,9 +158,9 @@ The hook engine emits all events. Webhook CRUD is UI-visible and tested. But the
 | 6 | Web search citations (function tool) | Small | Medium | ✅ Fixed |
 | 27 | E2E: exec Approve button UI | Small | Medium | ✅ Fixed |
 | 26 | E2E: schedule disable + PATCH endpoint | Small | Medium | ✅ Fixed |
-| 25 | E2E: image upload → multimodal response | Medium | Medium | ⬜ Todo |
-| 7 | PDF RAG pipeline | Large | Medium | ⬜ Todo |
-| 9 | Workspace file editors UI | Small | Low | ⬜ Todo |
+| 25 | E2E: image upload → multimodal response | Medium | Medium | ✅ Fixed |
+| 7 | PDF RAG pipeline | Large | Medium | ✅ Fixed |
+| 9 | Workspace file editors UI | Small | Low | ✅ Fixed |
 | 10 | API key management UI | Small | Low | ⬜ Todo |
 | 11 | MCP server form | Medium | Low | ⬜ Todo |
 | 12 | Settings panel | Large | Low | ⬜ Todo |

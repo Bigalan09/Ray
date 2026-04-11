@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { FileUpload } from "./FileUpload";
 import { CommandAutocomplete } from "./CommandAutocomplete";
 
@@ -62,6 +62,7 @@ export function InputForm({
 }: InputFormProps) {
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const commandFilter = input.startsWith("/") && !input.includes("\n") ? input : "";
 
@@ -92,16 +93,11 @@ export function InputForm({
   };
 
   const addImageFiles = useCallback(async (files: File[]) => {
-    for (const file of files) {
-      if (!isImageFile(file)) continue;
-      if (file.size > 20 * 1024 * 1024) continue;
-      const dataUrl = await fileToDataUrl(file);
-      onAddAttachment({
-        id: crypto.randomUUID(),
-        dataUrl,
-        name: file.name,
-      });
-    }
+    const imageFiles = files.filter((f) => isImageFile(f) && f.size <= 20 * 1024 * 1024);
+    const dataUrls = await Promise.all(imageFiles.map(fileToDataUrl));
+    imageFiles.forEach((file, i) => {
+      onAddAttachment({ id: crypto.randomUUID(), dataUrl: dataUrls[i], name: file.name });
+    });
   }, [onAddAttachment]);
 
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
@@ -215,6 +211,31 @@ export function InputForm({
         )}
 
         <div className="flex gap-2 items-center relative">
+          {/* Must stay in DOM — Playwright setInputFiles() targets this in E2E tests */}
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            aria-label="Attach image"
+            onChange={async (e) => {
+              const files = Array.from(e.target.files || []);
+              await addImageFiles(files);
+              if (imageInputRef.current) imageInputRef.current.value = "";
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => imageInputRef.current?.click()}
+            disabled={streaming}
+            className="bg-[var(--bg-badge)] hover:bg-[var(--bg-hover)] text-gray-300 hover:text-white rounded-lg px-2.5 py-2 text-sm transition-colors disabled:opacity-50"
+            title="Attach image"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </button>
           <FileUpload onFileUploaded={onFileUploaded} disabled={streaming} />
           <div className="flex-1 relative">
             <CommandAutocomplete
