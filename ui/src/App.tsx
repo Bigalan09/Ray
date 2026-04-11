@@ -9,6 +9,7 @@ import { TasksPanel } from "@/components/TasksPanel";
 import { SchedulePanel } from "@/components/SchedulePanel";
 import { MCPPanel } from "@/components/MCPPanel";
 import { HooksPanel } from "@/components/HooksPanel";
+import { MemoryPanel } from "@/components/MemoryPanel";
 import { ToastContainer, type ToastMessage } from "@/components/Toast";
 import "./index.css";
 
@@ -18,12 +19,18 @@ interface Conversation {
   updated_at: string;
 }
 
+interface Model {
+  id: string;
+  model: string;
+}
+
 const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [currentResponse, setCurrentResponse] = useState("");
-  const [defaultModel, setDefaultModel] = useState("");
+  const [models, setModels] = useState<Model[]>([]);
+  const [selectedModel, setSelectedModel] = useState("");
   const [totalTokens, setTotalTokens] = useState(0);
   const [promptTokens, setPromptTokens] = useState(0);
   const [completionTokens, setCompletionTokens] = useState(0);
@@ -35,6 +42,7 @@ const App: React.FC = () => {
   const [showMCP, setShowMCP] = useState(false);
   const [showSchedules, setShowSchedules] = useState(false);
   const [showHooks, setShowHooks] = useState(false);
+  const [showMemory, setShowMemory] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [taskAlertCount, setTaskAlertCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -79,7 +87,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    loadDefaultModel();
+    loadModels();
 
     const init = async () => {
       const [chats, bootstrapStatus] = await Promise.all([
@@ -153,11 +161,12 @@ const App: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, currentResponse]);
 
-  const loadDefaultModel = async () => {
+  const loadModels = async () => {
     try {
       const resp = await fetch("/api/models");
-      const data = await resp.json();
-      if (data.length > 0) setDefaultModel(data[0].id);
+      const data: Model[] = await resp.json();
+      setModels(data);
+      if (data.length > 0) setSelectedModel(data[0].id);
     } catch (err) {
       console.error("Failed to load models:", err);
     }
@@ -334,7 +343,7 @@ const App: React.FC = () => {
         const createResp = await fetch("/api/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ model: defaultModel }),
+          body: JSON.stringify({ model: selectedModel }),
         });
         if (!createResp.ok) {
           const errorText = await createResp.text();
@@ -378,7 +387,7 @@ const App: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: msgHistory,
-          model: defaultModel,
+          model: selectedModel || undefined,
           conversation_id: convId,
         }),
         signal: abortRef.current.signal,
@@ -531,6 +540,9 @@ const App: React.FC = () => {
       <Header
         sidebarVisible={sidebarVisible}
         onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
+        models={models}
+        selectedModel={selectedModel}
+        onModelChange={setSelectedModel}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -548,6 +560,7 @@ const App: React.FC = () => {
           onShowSchedules={() => setShowSchedules(true)}
           onShowMCP={() => setShowMCP(true)}
           onShowHooks={() => setShowHooks(true)}
+          onShowMemory={() => setShowMemory(true)}
         />
 
         <div className="flex-1 flex flex-col">
@@ -606,6 +619,7 @@ const App: React.FC = () => {
       <SchedulePanel visible={showSchedules} onClose={() => setShowSchedules(false)} />
       <MCPPanel visible={showMCP} onClose={() => setShowMCP(false)} />
       <HooksPanel visible={showHooks} onClose={() => setShowHooks(false)} />
+      <MemoryPanel visible={showMemory} onClose={() => setShowMemory(false)} />
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );

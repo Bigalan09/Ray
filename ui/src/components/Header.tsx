@@ -17,12 +17,20 @@ function RayIcon({ className = "w-5 h-5" }: { className?: string }) {
   );
 }
 
+interface Model {
+  id: string;
+  model: string;
+}
+
 interface HeaderProps {
   sidebarVisible: boolean;
   onToggleSidebar: () => void;
+  models?: Model[];
+  selectedModel?: string;
+  onModelChange?: (modelId: string) => void;
 }
 
-export function Header({ sidebarVisible, onToggleSidebar }: HeaderProps) {
+export function Header({ sidebarVisible, onToggleSidebar, models = [], selectedModel, onModelChange }: HeaderProps) {
   return (
     <div className="h-10 border-b border-[var(--border)] flex items-center px-3 bg-[var(--bg-raised)] gap-3" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
       <button
@@ -37,6 +45,21 @@ export function Header({ sidebarVisible, onToggleSidebar }: HeaderProps) {
       </button>
       <RayIcon className="w-5 h-5" />
       <span className="text-sm font-semibold text-white tracking-tight">Ray</span>
+
+      {models.length > 1 && onModelChange && (
+        <div className="ml-auto" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+          <select
+            value={selectedModel}
+            onChange={(e) => onModelChange(e.target.value)}
+            className="text-xs bg-[var(--bg-surface)] border border-[var(--border)] text-gray-300 rounded-lg px-2 py-1 hover:border-gray-500 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
+            title="Switch model"
+          >
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>{m.model}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }

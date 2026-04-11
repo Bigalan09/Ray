@@ -29,18 +29,13 @@ Last updated: 2026-04-11. Generated from full codebase audit + E2E gap review.
 ## P1 — Core Feature Gaps
 
 ### 4. Memory recall not wired into chat context
-**Symptom**: `memory_store` and `memory_search` tools exist and work via `/tool` command, but the LLM does not automatically recall relevant memories before responding.  
-**Status**: ChromaDB endpoints work. Proactive injection designed but not implemented.  
-**Fix needed**: In `_chat_direct()` (`api/routers/chat.py`), run `memory_search(last_user_msg, limit=4)` before building the system prompt and inject results into `build_agent_context()`.
+**Status**: Fixed. `memory_search(last_user_msg, limit=4)` runs before each turn in `chat.py`. Results are injected via `build_agent_context(injected_memories=...)` and appear as a `## Relevant Memory` section in the system prompt.
 
 ### 5. Memory panel absent
-The full memory API (`/api/memory/search`, `/api/memory/store`, `/api/memory/list`) works. There is no UI to browse, search, or delete memories. Users must use `/tool memory_search {}` from chat.  
-**Fix needed**: Sidebar panel with search input, paginated result list, and delete per-entry.
+**Status**: Fixed. `ui/src/components/MemoryPanel.tsx` — sidebar panel with search input, paginated result list, and per-entry delete. Accessible via the "Memory" nav button. Backed by GET `/api/memory`, POST `/api/memory/search`, DELETE `/api/memory/{id}`.
 
 ### 6. Web search citations not rendered for function tool results
-**Symptom**: `web_search_preview` (models that support it) emits `ray_citations` and renders citation cards. The `web_search` DuckDuckGo function tool (used by `gpt-5-nano`) returns plain text — no structured citations.  
-**Status**: Citation cards implemented for `web_search_preview` in `e177f45`. Function tool gap remains.  
-**Fix needed**: Return `{results: [{url, title, snippet}]}` from `web_search` tool and map to `ray_citations` in the SSE layer.
+**Status**: Fixed. `web_search` already returned `{results: [{url, title, snippet}]}`. Added `ray_citations` SSE emission in `_do_stream()` after each `web_search` tool call — same format as `web_search_preview` so citation cards render for gpt-5-nano too.
 
 ### 7. PDF / file upload has no RAG ingestion pipeline
 **Symptom**: The upload button accepts files. The `/api/documents` endpoint and chunking utilities exist. But uploaded files are never chunked, embedded, or stored in ChromaDB — so they can never be recalled.  
@@ -48,9 +43,7 @@ The full memory API (`/api/memory/search`, `/api/memory/store`, `/api/memory/lis
 **Fix needed**: `api/routers/documents.py` — accept upload → chunk → embed via ChromaDB → store. Inject relevant chunks into system prompt on each turn.
 
 ### 8. Model switching has no UI
-**Symptom**: Users cannot change from `gpt-5-nano` to any other configured model without editing `config/models.yaml`.  
-**Status**: `GET /api/models` returns all configured models. No dropdown exists in the UI header.  
-**Fix needed**: Add a model combobox in the Header; pass `model_id` in `POST /api/chat`; wire `resolve_model_provider`.
+**Status**: Fixed. `Header.tsx` now shows a `<select>` dropdown when multiple models are configured (hidden for single-model setups). Selection updates `selectedModel` state in `App.tsx` which is passed in every `POST /api/chat` call. Backed by existing `GET /api/models` and `resolve_model_provider`.
 
 ---
 
@@ -159,10 +152,10 @@ The hook engine emits all events. Webhook CRUD is UI-visible and tested. But the
 | 30 | Ollama missing [DONE] | Tiny | Low | ✅ Fixed 706c8ab |
 | 31 | asyncio.wait set | Tiny | Low | ✅ Fixed 706c8ab |
 | 32 | Inner imports in bootstrap | Tiny | Low | ✅ Fixed 706c8ab |
-| 4 | Memory proactive injection | Medium | **High** | ⬜ Todo |
-| 5 | Memory panel UI | Medium | **High** | ⬜ Todo |
-| 8 | Model switcher UI | Small | **High** | ⬜ Todo |
-| 6 | Web search citations (function tool) | Small | Medium | ⬜ Todo |
+| 4 | Memory proactive injection | Medium | **High** | ✅ Fixed |
+| 5 | Memory panel UI | Medium | **High** | ✅ Fixed |
+| 8 | Model switcher UI | Small | **High** | ✅ Fixed |
+| 6 | Web search citations (function tool) | Small | Medium | ✅ Fixed |
 | 27 | E2E: exec Approve button UI | Small | Medium | ⬜ Todo |
 | 26 | E2E: schedule disable | Small | Medium | ⬜ Todo |
 | 25 | E2E: image upload → multimodal response | Medium | Medium | ⬜ Todo |

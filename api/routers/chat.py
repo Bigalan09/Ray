@@ -430,6 +430,16 @@ async def _chat_direct(
                     "status": "error" if has_error else "success",
                     "result": result_preview,
                 }})}
+                # Emit ray_citations for web_search function tool results so the
+                # UI renders citation cards the same way it does for web_search_preview.
+                if tc_name == "web_search" and not has_error:
+                    cites = [
+                        {"url": r["url"], "title": r.get("title", r["url"])}
+                        for r in result.get("results", [])
+                        if r.get("url")
+                    ]
+                    if cites:
+                        yield {"data": json.dumps({"ray_citations": cites})}
                 tool_messages.append({"role": "tool", "tool_call_id": tc["id"], "content": result_str})
                 asyncio.create_task(hook_engine.emit("tool_executed", {
                     "tool_name": tc_name, "error": has_error,
