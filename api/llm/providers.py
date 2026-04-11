@@ -287,6 +287,7 @@ class OllamaProvider(LLMProvider):
                 if resp.status_code != 200:
                     error_text = await resp.aread()
                     yield f'data: {json.dumps({"error": "Ollama Error", "message": error_text.decode()[:500]})}'
+                    yield "data: [DONE]"
                     return
 
                 async for line in resp.aiter_lines():

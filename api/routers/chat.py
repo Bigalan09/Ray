@@ -12,6 +12,8 @@ from config import settings, load_yaml, get_default_model
 from memory.conversation import add_message, auto_title, conversation_exists
 from agents.router import route_message
 from agents.base import build_agent_context
+from agents.prompt_builder import load_workspace_file
+from commands.builtin import _extract_user_name
 import logging
 from llm.providers import resolve_model_provider, RetryableStreamError
 
@@ -94,7 +96,7 @@ async def _finalize_bootstrap(
                 _generate_bootstrap_content(messages, deployment, models_config)
             )
             while True:
-                done, _ = await asyncio.wait([task], timeout=4)
+                done, _ = await asyncio.wait({task}, timeout=4)
                 if done:
                     break
                 yield _KEEPALIVE
@@ -103,9 +105,6 @@ async def _finalize_bootstrap(
             saved = _try_save_bootstrap(accumulated)
 
             if saved:
-                from agents.prompt_builder import load_workspace_file
-                from commands.builtin import _extract_user_name
-
                 user_content = load_workspace_file("USER.md")
                 name = _extract_user_name(user_content)
                 greeting = f"Hi {name}, how can I help?" if name else "Hi, how can I help?"
