@@ -104,10 +104,11 @@ app.include_router(ws.router)
 app.include_router(documents.router, prefix="/api")
 app.include_router(commands.router, prefix="/api")
 
-from routers import schedules, exec_router, hooks as hooks_router
+from routers import schedules, exec_router, hooks as hooks_router, skills as skills_router
 app.include_router(schedules.router, prefix="/api")
 app.include_router(exec_router.router, prefix="/api")
 app.include_router(hooks_router.router, prefix="/api")
+app.include_router(skills_router.router, prefix="/api")
 
 
 @app.get("/health")
@@ -130,13 +131,34 @@ async def audit_log(limit: int = 100):
     return get_audit_log(limit)
 
 
-@app.post("/api/auth/generate-key")
-async def gen_key():
+@app.post("/api/auth/key")
+async def create_key(force: bool = False):
     existing = _load_api_key()
-    if existing:
-        return {"error": "API key already exists. Delete workspace/api_key to regenerate."}
+    if existing and not force:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=409, detail="API key already exists. Use ?force=true to rotate.")
     key = generate_api_key()
     return {"api_key": key, "note": "Save this key. It will not be shown again."}
+
+
+@app.post("/api/auth/generate-key")
+async def gen_key():
+    """Legacy endpoint — kept for backwards compatibility."""
+    existing = _load_api_key()
+    if existing:
+        return {"error": "API key already exists. Use DELETE /api/auth/key then POST to regenerate."}
+    key = generate_api_key()
+    return {"api_key": key, "note": "Save this key. It will not be shown again."}
+
+
+@app.delete("/api/auth/key")
+async def revoke_key():
+    key_file = settings.data_dir / "api_key"
+    if not key_file.exists():
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=404, content={"error": "No API key exists."})
+    key_file.unlink()
+    return {"revoked": True}
 
 
 @app.get("/api/auth/status")

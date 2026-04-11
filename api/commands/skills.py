@@ -1,13 +1,16 @@
 """Skills system: saved prompt templates invocable via /skill."""
 from __future__ import annotations
 
-from config import load_yaml
 from commands.registry import register_command
 
 
 def _load_skills() -> list[dict]:
-    config = load_yaml("skills.yaml")
-    return config.get("skills") or []
+    """Load skills: workspace overrides built-ins with the same name."""
+    from routers.skills import _load_builtin_skills, _load_workspace_skills
+    builtin = _load_builtin_skills()
+    workspace = _load_workspace_skills()
+    ws_names = {s["name"] for s in workspace}
+    return [s for s in builtin if s["name"] not in ws_names] + workspace
 
 
 async def _skill(args_str: str, context: dict) -> dict:

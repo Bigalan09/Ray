@@ -11,6 +11,8 @@ import { MCPPanel } from "@/components/MCPPanel";
 import { HooksPanel } from "@/components/HooksPanel";
 import { MemoryPanel } from "@/components/MemoryPanel";
 import { WorkspacePanel } from "@/components/WorkspacePanel";
+import { ApiKeyPanel } from "@/components/ApiKeyPanel";
+import { SkillsPanel } from "@/components/SkillsPanel";
 import { ToastContainer, type ToastMessage } from "@/components/Toast";
 import "./index.css";
 
@@ -45,6 +47,8 @@ const App: React.FC = () => {
   const [showHooks, setShowHooks] = useState(false);
   const [showMemory, setShowMemory] = useState(false);
   const [showWorkspace, setShowWorkspace] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showSkills, setShowSkills] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [taskAlertCount, setTaskAlertCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -563,7 +567,8 @@ const App: React.FC = () => {
           onShowMCP={() => setShowMCP(true)}
           onShowHooks={() => setShowHooks(true)}
           onShowMemory={() => setShowMemory(true)}
-          onShowWorkspace={() => setShowWorkspace(true)}
+          onShowApiKey={() => setShowApiKey(true)}
+          onShowSkills={() => setShowSkills(true)}
         />
 
         <div className="flex-1 flex flex-col">
@@ -624,6 +629,8 @@ const App: React.FC = () => {
       <HooksPanel visible={showHooks} onClose={() => setShowHooks(false)} />
       <MemoryPanel visible={showMemory} onClose={() => setShowMemory(false)} />
       <WorkspacePanel visible={showWorkspace} onClose={() => setShowWorkspace(false)} />
+      <ApiKeyPanel visible={showApiKey} onClose={() => setShowApiKey(false)} />
+      <SkillsPanel visible={showSkills} onClose={() => setShowSkills(false)} />
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );

@@ -53,7 +53,7 @@ Last updated: 2026-04-11. Generated from full codebase audit + E2E gap review.
 **Status**: Fixed. `WorkspacePanel.tsx` — three-tab panel (Soul / User / Identity) with load, edit, and save. Accessible via the "Workspace" nav button. Backed by existing `GET/PUT /api/identity/{soul,me,identity}` endpoints.
 
 ### 10. API key management absent
-Auth middleware enforces `X-API-Key` when `workspace/api_key` exists. No UI to generate, reveal, or rotate the key. Users must call `POST /api/auth/generate-key` manually.
+**Status**: Fixed. `POST /api/auth/key` (generate/rotate) and `DELETE /api/auth/key` (revoke) added to `api/main.py`. `ApiKeyPanel` component added to sidebar — generate, rotate, revoke, and copy-to-clipboard in one place. Returns 409 when key already exists without `?force=true`.
 
 ### 11. MCP server registration requires manual JSON
 `workspace/mcp_servers.json` must be edited by hand. The MCP panel shows server status but has no form to add/remove servers.
@@ -65,7 +65,7 @@ No UI for editing rate limits, exec allow-list, model defaults, or any other con
 **Status**: Fixed. `/agent [name]` registered in `api/commands/builtin.py`. `/agent list` shows available agents; `/agent <name>` redirects the current message through the named agent. Unknown names return an error. `chat.py` extracts `explicit_agent` from redirect results and passes it to `route_message()`.
 
 ### 14. Skill builder has no UI
-`/skill list` and `/skill <name> <input>` work. Skills can only be created by editing `config/skills.yaml`. No UI form.
+**Status**: Fixed. `api/routers/skills.py` adds `GET/POST/DELETE /api/skills` endpoints. Workspace skills written to `workspace/skills.yaml` and merged over built-ins at load time. `SkillsPanel` component added to sidebar — view built-in and custom skills, create new skills via form, delete custom ones.
 
 ---
 
@@ -160,11 +160,11 @@ The hook engine emits all events. Webhook CRUD is UI-visible and tested. But the
 | 25 | E2E: image upload → multimodal response | Medium | Medium | ✅ Fixed |
 | 7 | PDF RAG pipeline | Large | Medium | ✅ Fixed |
 | 9 | Workspace file editors UI | Small | Low | ✅ Fixed |
-| 10 | API key management UI | Small | Low | ⬜ Todo |
+| 10 | API key management UI | Small | Low | ✅ Fixed |
 | 11 | MCP server form | Medium | Low | ⬜ Todo |
 | 12 | Settings panel | Large | Low | ⬜ Todo |
 | 13 | `/agent` slash command | Small | Low | ✅ Fixed |
-| 14 | Skill builder UI | Medium | Low | ⬜ Todo |
+| 14 | Skill builder UI | Medium | Low | ✅ Fixed |
 | 16 | E2E: proactive memory recall | Small | Low | ⬜ Blocked by #4 |
 | 29 | auto_title timeout/fallback | Tiny | Low | ✅ Fixed |
 | 28 | Central model capabilities registry | Small | Low | ✅ Fixed |
