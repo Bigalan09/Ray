@@ -175,3 +175,37 @@ def _unpersist_schedule(name: str) -> None:
     data = _read_workspace_schedules()
     data["schedules"] = [s for s in data["schedules"] if s.get("name") != name]
     _write_workspace_schedules(data)
+
+
+def set_schedule_enabled(name: str, enabled: bool) -> dict:
+    """Enable or disable a persisted schedule. Adds/removes the live APScheduler job."""
+    data = _read_workspace_schedules()
+    matched = next((s for s in data["schedules"] if s.get("name") == name), None)
+    if not matched:
+        return {"error": f"Schedule '{name}' not found"}
+
+    matched["enabled"] = enabled
+    _write_workspace_schedules(data)
+
+    if _scheduler:
+        job_id = f"schedule_{name}"
+        if enabled:
+            try:
+                trigger = CronTrigger.from_crontab(matched["cron"])
+                _scheduler.add_job(
+                    _run_scheduled_task,
+                    trigger=trigger,
+                    args=[name, matched["prompt"], matched.get("agent", "general")],
+                    id=job_id,
+                    name=name,
+                    replace_existing=True,
+                )
+            except Exception as e:
+                return {"error": str(e)}
+        else:
+            try:
+                _scheduler.remove_job(job_id)
+            except Exception:
+                pass  # Already not running — that's fine
+
+    return {"name": name, "enabled": enabled}

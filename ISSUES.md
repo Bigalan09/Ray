@@ -156,8 +156,8 @@ The hook engine emits all events. Webhook CRUD is UI-visible and tested. But the
 | 5 | Memory panel UI | Medium | **High** | ✅ Fixed |
 | 8 | Model switcher UI | Small | **High** | ✅ Fixed |
 | 6 | Web search citations (function tool) | Small | Medium | ✅ Fixed |
-| 27 | E2E: exec Approve button UI | Small | Medium | ⬜ Todo |
-| 26 | E2E: schedule disable | Small | Medium | ⬜ Todo |
+| 27 | E2E: exec Approve button UI | Small | Medium | ✅ Fixed |
+| 26 | E2E: schedule disable + PATCH endpoint | Small | Medium | ✅ Fixed |
 | 25 | E2E: image upload → multimodal response | Medium | Medium | ⬜ Todo |
 | 7 | PDF RAG pipeline | Large | Medium | ⬜ Todo |
 | 9 | Workspace file editors UI | Small | Low | ⬜ Todo |

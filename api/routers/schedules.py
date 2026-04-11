@@ -8,6 +8,7 @@ from tasks.scheduler import (
     get_scheduled_jobs,
     add_schedule,
     remove_schedule,
+    set_schedule_enabled,
     is_valid_cron,
     _read_workspace_schedules,
 )
@@ -70,6 +71,17 @@ async def create_schedule(req: CreateScheduleRequest):
     result = add_schedule(req.name.strip(), req.cron.strip(), req.prompt.strip(), req.agent)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@router.patch("/schedules/{name}")
+async def update_schedule(name: str, body: dict):
+    """Update a schedule — currently supports toggling enabled."""
+    if "enabled" not in body:
+        raise HTTPException(status_code=400, detail="Only 'enabled' field can be patched")
+    result = set_schedule_enabled(name, bool(body["enabled"]))
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
     return result
 
 
