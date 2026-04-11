@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ─── Ray Installer ────────────────────────────────────────────────────────────
-# Usage: curl -fsSL https://openclaw.ai/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/Bigalan09/Ray/main/install.sh | bash
 # Env overrides:
 #   RAY_DIR    — install directory (default: ~/ray)
 #   RAY_TAG    — image tag to pull   (default: latest)
