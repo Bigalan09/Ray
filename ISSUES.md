@@ -62,7 +62,7 @@ Auth middleware enforces `X-API-Key` when `workspace/api_key` exists. No UI to g
 No UI for editing rate limits, exec allow-list, model defaults, or any other configuration. Everything requires file edits or raw API calls.
 
 ### 13. `/agent` slash command not registered
-`agents.yaml` defines `orchestrator` and `curator` agents. The routing logic exists. But `/agent <name>` is not registered in `api/commands/builtin.py`, so there is no way to switch agents from chat.
+**Status**: Fixed. `/agent [name]` registered in `api/commands/builtin.py`. `/agent list` shows available agents; `/agent <name>` redirects the current message through the named agent. Unknown names return an error. `chat.py` extracts `explicit_agent` from redirect results and passes it to `route_message()`.
 
 ### 14. Skill builder has no UI
 `/skill list` and `/skill <name> <input>` work. Skills can only be created by editing `config/skills.yaml`. No UI form.
@@ -119,11 +119,10 @@ No test exercises the full approval card flow: send `/exec git status` → wait 
 ## P4 — Code Quality / Architecture
 
 ### 28. Two model capability functions duplicating `gpt-5-nano` knowledge
-`_supports_temperature` and `_supports_web_search_preview` in `api/llm/responses.py` both hardcode `"gpt-5-nano"`. Should be a central `_MODEL_CAPS` dict.  
-**Status**: Syntax inconsistency fixed in `d2a52ed`. Central registry not yet done.
+**Status**: Fixed. `_MODEL_CAPS_BLACKLIST` dict in `api/llm/responses.py` centralises per-capability model restrictions. `_supports_temperature` and `_supports_web_search_preview` both check against it. Adding a new restricted model requires one dict entry.
 
 ### 29. `auto_title()` LLM call has no timeout
-The async `_llm_title()` call fires and forgets. If the OpenAI API is slow or unavailable, the title stays "New Chat" indefinitely with no fallback.
+**Status**: Fixed. `_llm_title()` now wraps the `asyncio.to_thread` call with `asyncio.wait_for(timeout=10.0)`. Slow/unavailable API calls are cancelled after 10 seconds; the title falls back to "New Chat" silently.
 
 ### 30. `OllamaProvider.stream_chat` did not emit `[DONE]` on error path
 If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang waiting for `[DONE]`.  
@@ -164,9 +163,9 @@ The hook engine emits all events. Webhook CRUD is UI-visible and tested. But the
 | 10 | API key management UI | Small | Low | ⬜ Todo |
 | 11 | MCP server form | Medium | Low | ⬜ Todo |
 | 12 | Settings panel | Large | Low | ⬜ Todo |
-| 13 | `/agent` slash command | Small | Low | ⬜ Todo |
+| 13 | `/agent` slash command | Small | Low | ✅ Fixed |
 | 14 | Skill builder UI | Medium | Low | ⬜ Todo |
 | 16 | E2E: proactive memory recall | Small | Low | ⬜ Blocked by #4 |
-| 29 | auto_title timeout/fallback | Tiny | Low | ⬜ Todo |
-| 28 | Central model capabilities registry | Small | Low | ⬜ Todo |
+| 29 | auto_title timeout/fallback | Tiny | Low | ✅ Fixed |
+| 28 | Central model capabilities registry | Small | Low | ✅ Fixed |
 | 33 | Pre/post hook UI + tests | Large | Low | ⬜ Todo |

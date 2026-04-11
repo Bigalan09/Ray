@@ -113,7 +113,7 @@ Issues reference [ISSUES.md](ISSUES.md) numbering.
 - [ ] **#10 API key management UI**: No UI to generate, reveal, or rotate the key. Must call `POST /api/auth/generate-key` manually.
 - [ ] **#11 MCP server form**: Panel shows status but has no form to add/remove servers.
 - [ ] **#12 Settings panel**: No UI for rate limits, exec allow-list, model defaults, or other config.
-- [ ] **#13 `/agent` slash command**: `agents.yaml` defines agents but `/agent <name>` is not registered in `api/commands/builtin.py`.
+- [x] **#13 `/agent` slash command**: Registered in `api/commands/builtin.py`. `/agent list` shows agents; `/agent <name>` routes message through named agent.
 - [ ] **#14 Skill builder UI**: Skills work via `/skill` but can only be created by editing `config/skills.yaml`.
 
 ### P3 — Test Gaps
@@ -122,8 +122,6 @@ Issues reference [ISSUES.md](ISSUES.md) numbering.
 
 ### P4 — Code Quality
 
-- [ ] **#28 Central model capabilities registry**: `_supports_temperature` and `_supports_web_search_preview` both hardcode `"gpt-5-nano"`. Consolidate into a `_MODEL_CAPS` dict.
-- [ ] **#29 `auto_title()` timeout**: The background LLM title call has no timeout. If the API is slow the title stays "New Chat" indefinitely. Add a timeout + fallback.
 - [ ] **#33 Pre/post hook UI + tests**: The `pre_command` / `post_command` rule type (can cancel operations) is untested and has no management UI.
 
 ---

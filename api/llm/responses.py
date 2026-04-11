@@ -128,14 +128,20 @@ def _convert_tools(tools: list[dict] | None) -> list[dict]:
     return converted
 
 
+# Models that lack certain capabilities. Exact-match against model ID.
+# Add a model name here to restrict it; remove to restore the capability.
+_MODEL_CAPS_BLACKLIST: dict[str, set[str]] = {
+    "temperature": {"gpt-5-nano"},
+    "web_search_preview": {"gpt-5-nano"},
+}
+
+
 def _supports_temperature(model: str) -> bool:
-    """Return whether the configured model accepts the temperature parameter."""
-    return model != "gpt-5-nano"
+    return model not in _MODEL_CAPS_BLACKLIST["temperature"]
 
 
 def _supports_web_search_preview(model: str) -> bool:
-    """Return whether the model supports the native web_search_preview tool."""
-    return model != "gpt-5-nano"
+    return model not in _MODEL_CAPS_BLACKLIST["web_search_preview"]
 
 
 def build_request_kwargs(

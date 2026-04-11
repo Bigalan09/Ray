@@ -193,16 +193,19 @@ async def _llm_title(conv_id: str, first_user_msg: str, first_assistant_msg: str
         from config import load_yaml, get_default_model
         client = _get_client()
         model = get_default_model(load_yaml("models.yaml"))
-        response = await asyncio.to_thread(
-            client.responses.create,
-            model=model,
-            instructions=(
-                "Generate a 4–6 word title for this conversation. "
-                "Return ONLY the title, no punctuation, no quotes."
+        response = await asyncio.wait_for(
+            asyncio.to_thread(
+                client.responses.create,
+                model=model,
+                instructions=(
+                    "Generate a 4–6 word title for this conversation. "
+                    "Return ONLY the title, no punctuation, no quotes."
+                ),
+                input=[{"role": "user", "content":
+                        f"User: {first_user_msg[:300]}\nAssistant: {first_assistant_msg[:300]}"}],
+                temperature=0,
             ),
-            input=[{"role": "user", "content":
-                    f"User: {first_user_msg[:300]}\nAssistant: {first_assistant_msg[:300]}"}],
-            temperature=0,
+            timeout=10.0,
         )
         title = response_output_text(response).strip()[:80]
         if title:

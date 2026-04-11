@@ -23,7 +23,13 @@ All notable changes to Ray are documented here.
 - **Production compose** (`docker-compose.ghcr.yml`): Compose file referencing pre-built GHCR images. Used by the one-liner installer.
 - **One-liner installer** (`install.sh`): `curl -fsSL .../install.sh | bash` — checks Docker, downloads compose + config, scaffolds `.env`, pulls images, starts Ray.
 
+### Added (continued)
+- **`/agent` slash command**: `/agent list` shows available agents; `/agent <name>` routes the current message through the named agent. Unknown names return an inline error. `chat.py` extracts `explicit_agent` from redirect results.
+- **E2E: agent command** (`tests/e2e/agent-command.spec.ts`): command listed, list output, valid switch, unknown error.
+
 ### Changed
+- **Central model capabilities registry**: `_MODEL_CAPS_BLACKLIST` dict in `api/llm/responses.py` replaces two duplicated `gpt-5-nano` hardcodes. Adding a new restricted model now requires one entry.
+- **`auto_title()` 10s timeout**: `_llm_title()` wraps the LLM call with `asyncio.wait_for(timeout=10.0)`. Slow/unavailable API calls are cancelled silently; title falls back to "New Chat".
 - **Ray reframed as general assistant**: Bootstrap onboarding (`workspace-template/BOOTSTRAP.md`) now asks about name, interests, and what the user cares about — not job/role. `SOUL.md` updated to remove work-specific guidance. Agent description and system prompt updated to drop "work assistant" framing.
 - **Default model**: Changed from `gpt-5.4-mini` to `gpt-5-nano` in `config/models.yaml`.
 - **Rate limiting defaults**: Raised to `1200` req/min, `200` burst (was 120/20) to avoid throttling normal local UI traffic.

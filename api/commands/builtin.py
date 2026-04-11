@@ -286,6 +286,39 @@ async def _schedule(args_str: str, context: dict) -> dict:
     }
 
 
+async def _agent(args_str: str, context: dict) -> dict:
+    """Switch to a named agent or list available agents."""
+    from agents.registry import get_agent_for_display
+
+    args = args_str.strip().lower()
+
+    if not args or args == "list":
+        agents = get_agent_for_display()
+        lines = ["**Available agents:**", ""]
+        for a in agents:
+            desc = f"  `{a['name']}`  {a.get('description', '')}"
+            lines.append(desc)
+        lines.append("")
+        lines.append("Use `/agent <name>` to switch.")
+        return {"content": "\n".join(lines)}
+
+    agents = get_agent_for_display()
+    agent_info = next((a for a in agents if a["name"] == args), None)
+    if not agent_info:
+        names = ", ".join(f"`{a['name']}`" for a in agents)
+        return {"content": f"Unknown agent: `{args}`. Available: {names}", "error": True}
+
+    display = agent_info.get("display_name", agent_info["name"])
+    desc = agent_info.get("description", "")
+    intro = f"respond as {display}. {desc}".rstrip() if desc else f"respond as {display}."
+    return {
+        "type": "redirect",
+        "agent": args,
+        "message": f"[switched to {args} agent] Hello — {intro} What would you like to do?",
+        "content": f"Switched to **{display}** agent.",
+    }
+
+
 def register_builtin_commands():
     """Register all built-in commands. Called at import time."""
     register_command("help", _help, "List available commands", "/help")
@@ -296,6 +329,7 @@ def register_builtin_commands():
     register_command("tool", _tool, "Execute a tool or list tools", "/tool [name] [json_args]")
     register_command("task", _task, "Create or manage background tasks", "/task [prompt] | status [id] | cancel [id]")
     register_command("schedule", _schedule, "Create or manage scheduled tasks", "/schedule [cron] [prompt] | list | remove [name]")
+    register_command("agent", _agent, "Switch agent or list available agents", "/agent [name]")
     register_command("bootstrap", _bootstrap, "Manage first-run onboarding", "/bootstrap done|reset|status")
 
 

@@ -202,6 +202,7 @@ async def chat(request: Request):
     from commands.registry import parse_command, execute_command
     skip_bootstrap_injection = False
     cmd = parse_command(last_user_msg)
+    explicit_agent: str | None = None
     if cmd:
         cmd_name, cmd_args = cmd
         ctx = {"conversation_id": conversation_id, "model": model}
@@ -210,6 +211,7 @@ async def chat(request: Request):
         # Redirect: send a different message through the LLM (used by skills and /bootstrap done)
         if result.get("type") == "redirect":
             redirect_msg = result["message"]
+            explicit_agent = result.get("agent")
             # Replace last user message with the redirect prompt
             messages = [m for m in messages[:-1] if m.get("role") == "user" or m.get("role") == "assistant"]
             messages.append({"role": "user", "content": redirect_msg})
@@ -275,7 +277,7 @@ async def chat(request: Request):
         except Exception:
             pass
 
-    agent_name = route_message(last_user_msg, "general")
+    agent_name = route_message(last_user_msg, "general", explicit_agent=explicit_agent)
     agent_ctx = build_agent_context(agent_name, injected_memories=injected_memories)
     temperature = payload.get("temperature")
     effective_temp = temperature if temperature is not None else agent_ctx["temperature"]

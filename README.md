@@ -102,6 +102,7 @@ Type `/` in the chat input for autocomplete.
 | `/exec <command>` | Run an allowlisted system command (requires approval) |
 | `/exec list` | Show allowed commands |
 | `/hook [list\|add\|remove\|test\|log\|events]` | Manage webhooks |
+| `/agent [name]` | Switch to a named agent, or list available agents |
 | `/bootstrap done\|reset\|status` | Manage first-run onboarding |
 
 ---
