@@ -135,7 +135,7 @@ def _supports_temperature(model: str) -> bool:
 
 def _supports_web_search_preview(model: str) -> bool:
     """Return whether the model supports the native web_search_preview tool."""
-    return model not in ("gpt-5-nano",)
+    return model != "gpt-5-nano"
 
 
 def build_request_kwargs(
@@ -158,7 +158,6 @@ def build_request_kwargs(
         kwargs["temperature"] = temperature
 
     # web_search_preview is native to the Responses API; Azure/Ollama ignore it.
-    # Only inject for models that support it — gpt-5-nano does not.
     converted_tools = _convert_tools(tools)
     if _supports_web_search_preview(model):
         all_tools = [{"type": "web_search_preview"}] + converted_tools

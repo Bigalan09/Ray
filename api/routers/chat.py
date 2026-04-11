@@ -18,6 +18,8 @@ from llm.providers import resolve_model_provider, RetryableStreamError
 log = logging.getLogger(__name__)
 router = APIRouter()
 
+_KEEPALIVE = {"data": json.dumps({"ray_metadata": {"type": "keepalive"}})}
+
 MAX_RETRIES = settings.max_retries
 BASE_DELAY_MS = settings.base_delay_ms
 
@@ -83,8 +85,6 @@ async def _finalize_bootstrap(
     reverse-proxies (Traefik, nginx) do not drop the SSE connection during
     the potentially long identity-file generation.
     """
-
-    _KEEPALIVE = {"data": json.dumps({"ray_metadata": {"type": "keepalive"}})}
 
     async def event_generator():
         try:
