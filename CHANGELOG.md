@@ -5,7 +5,18 @@ All notable changes to Ray are documented here.
 ## [Unreleased] — 2026-04-11
 
 ### Added
+- **Workspace file editors** (`WorkspacePanel.tsx`): Sidebar panel with three tabs — Soul, User, Identity — for editing `SOUL.md`, `USER.md`, and `IDENTITY.md` directly in the UI. Lazy-loads each file on first tab visit. Backed by existing `GET/PUT /api/identity/{soul,me,identity}` endpoints.
+- **Image attach button**: Dedicated camera button in the input bar opens a native file picker for images. The `<input type="file">` stays in the DOM so Playwright's `setInputFiles()` works in E2E tests. Multi-image parallel attach.
+- **Web search citations for function tool**: `web_search` (DuckDuckGo) results now emit `ray_citations` SSE events, so citation cards render in the UI for gpt-5-nano and other models that don't support `web_search_preview`.
+- **Proactive memory injection**: `memory_search(last_user_msg, limit=4)` runs before each chat turn. Top hits are injected into the system prompt as a `## Relevant Memory` section so Ray recalls relevant facts without being asked.
+- **Memory panel** (`MemoryPanel.tsx`): Sidebar panel with full-text search, paginated result list, and per-entry delete. Accessible via the "Memory" nav button. Backed by `GET /api/memory`, `POST /api/memory/search`, `DELETE /api/memory/{id}`.
+- **Model switcher UI**: `<select>` dropdown in the header shows available models (hidden when only one is configured). Selection passes `model` in every `POST /api/chat` request. Backed by `GET /api/models`.
+- **Schedule disable**: `PATCH /api/schedules/{name}` endpoint accepts `{enabled: bool}`. Toggles APScheduler live job and persists to `workspace/schedules.yaml`. Panel UI reflects disabled state.
 - **Full E2E test suite** (`tests/e2e/full-coverage.spec.ts`): 100+ test cases across 20 describe blocks covering infrastructure/health, bootstrap, chat API, chat UI, slash commands, tools, LLM tool calls (live), web search (live), memory, background tasks, scheduled tasks, webhooks, exec guardrails, conversation CRUD, identity/workspace, MCP, skills, image upload, auth, and error handling. Live-LLM tests auto-skip without `OPENAI_API_KEY`.
+- **E2E: exec Approve button UI** (`tests/e2e/exec-approve-ui.spec.ts`): Full flow — `/exec git status` → approval card renders → click Allow → command output in chat. Deny path also tested.
+- **E2E: schedule disable** (`tests/e2e/schedule-disable.spec.ts`): Create → disable → verify disabled in list → re-enable → 404 on unknown.
+- **E2E: image upload** (`tests/e2e/image-upload.spec.ts`): Attach button visible, preview thumbnail, remove, multiple images, live LLM multimodal test (skips without API key).
+- **E2E: RAG pipeline** (`tests/e2e/rag-pipeline.spec.ts`): Upload text/markdown, list ingested docs, search returns results, delete, empty file → 400, `document_search` tool in `/api/tools`.
 - **Docker E2E config** (`tests/playwright.docker.config.ts`): Playwright config connecting to a running Docker stack; no web server setup needed. Supports `npm run test:docker` and `npm run test:docker:full`.
 - **ISSUES.md**: Full codebase audit listing 33 known issues across P0–P4 with root causes, fix status, and a prioritised fix-order table.
 - **GHCR release pipeline** (`.github/workflows/release.yml`): Builds and pushes `ray-api` and `ray-ui` to `ghcr.io/bigalan09/` on version tags and manual dispatch. Multi-arch (`linux/amd64`, `linux/arm64`). Uses GHA layer caching per service.
@@ -13,6 +24,7 @@ All notable changes to Ray are documented here.
 - **One-liner installer** (`install.sh`): `curl -fsSL .../install.sh | bash` — checks Docker, downloads compose + config, scaffolds `.env`, pulls images, starts Ray.
 
 ### Changed
+- **Ray reframed as general assistant**: Bootstrap onboarding (`workspace-template/BOOTSTRAP.md`) now asks about name, interests, and what the user cares about — not job/role. `SOUL.md` updated to remove work-specific guidance. Agent description and system prompt updated to drop "work assistant" framing.
 - **Default model**: Changed from `gpt-5.4-mini` to `gpt-5-nano` in `config/models.yaml`.
 - **Rate limiting defaults**: Raised to `1200` req/min, `200` burst (was 120/20) to avoid throttling normal local UI traffic.
 - **README**: Completely rewritten — one-liner install, feature status table, updated architecture, GHCR release section, Docker testing commands.

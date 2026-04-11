@@ -1,6 +1,6 @@
 # Ray — Roadmap
 
-Ray is a local-first AI personal work assistant. Browser-based chat UI (React/Bun) backed by a Python API (FastAPI) with the OpenAI Responses API as the primary LLM backend. Runs locally via Docker Compose.
+Ray is a local-first AI personal assistant. Browser-based chat UI (React/Bun) backed by a Python API (FastAPI) with the OpenAI Responses API as the primary LLM backend. Runs locally via Docker Compose.
 
 ## Architecture
 
@@ -76,6 +76,13 @@ ray-chromadb (vector memory)
 - [x] Message copy/resend buttons
 - [x] Image upload (paste, drag-and-drop, or file picker)
 - [x] Citation cards for `web_search_preview` results
+- [x] Web search citations for function tool (`web_search` DuckDuckGo → `ray_citations` SSE events)
+- [x] Model switcher dropdown in header (backed by `GET /api/models`)
+- [x] Memory panel (browse, search, delete entries in sidebar)
+- [x] Proactive memory injection per turn (`memory_search` before building system prompt)
+- [x] Workspace file editors (Soul/User/Identity tabs in sidebar panel)
+- [x] Schedule enable/disable (`PATCH /api/schedules/{name}`, APScheduler live toggle)
+- [x] Bootstrap reframed as general assistant (not work assistant); onboarding asks about interests/life, not job/role
 
 ### Security & Infrastructure
 - [x] Auth middleware (`X-API-Key`; disabled until key generated)
@@ -90,6 +97,10 @@ ray-chromadb (vector memory)
 - [x] API unit + integration tests (148+ tests; live OpenAI auto-skipped without key)
 - [x] Full E2E Playwright suite (`full-coverage.spec.ts`; 100+ cases)
 - [x] Docker stack E2E config (`playwright.docker.config.ts`)
+- [x] E2E: exec Approve button UI full flow (`exec-approve-ui.spec.ts`)
+- [x] E2E: schedule disable/re-enable lifecycle (`schedule-disable.spec.ts`)
+- [x] E2E: image upload UI + multimodal LLM path (`image-upload.spec.ts`)
+- [x] E2E: RAG pipeline upload/search/delete (`rag-pipeline.spec.ts`)
 
 ---
 
@@ -97,17 +108,8 @@ ray-chromadb (vector memory)
 
 Issues reference [ISSUES.md](ISSUES.md) numbering.
 
-### P1 — Core Feature Gaps
-
-- [ ] **#4 Proactive memory injection**: Run `memory_search(last_user_msg, limit=4)` before building the system prompt in `_chat_direct()`. Inject hits into `build_system_prompt()` as a `## Relevant Memory` section.
-- [ ] **#5 Memory panel UI**: Sidebar panel with search input, paginated result list, and delete per-entry. Backed by existing `/api/memory/search`, `/api/memory/list` endpoints.
-- [ ] **#8 Model switcher UI**: Combobox in the Header; passes `model_id` in `POST /api/chat`; backed by existing `GET /api/models`.
-- [ ] **#6 Web search citations (function tool)**: `web_search` DuckDuckGo tool returns plain text. Return `{results: [{url, title, snippet}]}` and map to `ray_citations` in the SSE layer so gpt-5-nano gets citation cards too.
-- [ ] **#7 PDF / file RAG pipeline**: `api/routers/documents.py` accepts uploads but doesn't chunk, embed, or store. Wire: upload → chunk → embed (ChromaDB) → inject relevant chunks per turn.
-
 ### P2 — Missing UI for Working Backend Features
 
-- [ ] **#9 Workspace file editors**: No UI to edit SOUL.md / USER.md / IDENTITY.md. Backend endpoints exist (`PUT /api/identity/soul` etc.).
 - [ ] **#10 API key management UI**: No UI to generate, reveal, or rotate the key. Must call `POST /api/auth/generate-key` manually.
 - [ ] **#11 MCP server form**: Panel shows status but has no form to add/remove servers.
 - [ ] **#12 Settings panel**: No UI for rate limits, exec allow-list, model defaults, or other config.
@@ -116,10 +118,7 @@ Issues reference [ISSUES.md](ISSUES.md) numbering.
 
 ### P3 — Test Gaps
 
-- [ ] **#25 E2E: image upload → multimodal LLM response**: Attach a real image, ask a question, verify the assistant describes it. Blocked by OS file picker (needs `page.setInputFiles()` path).
-- [ ] **#26 E2E: schedule disable**: Create a schedule, PATCH `enabled: false`, verify panel shows it disabled and scheduler skips it.
-- [ ] **#27 E2E: exec Approve button UI**: Send `/exec git status`, wait for approval card, click Approve, verify output appears in chat.
-- [ ] **#16 E2E: proactive memory recall**: Store a fact, start a new conversation, ask a related question, verify it appears without explicit `/tool` call. Blocked by #4.
+- [ ] **#16 E2E: proactive memory recall**: Store a fact, start a new conversation, ask a related question, verify it appears without explicit `/tool` call.
 
 ### P4 — Code Quality
 

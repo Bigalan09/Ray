@@ -32,14 +32,22 @@ Tests live in `tests/e2e/` as Playwright specs. Each feature gets its own file.
 ```
 tests/
   e2e/
-    smoke.spec.ts          -- UI smoke tests, API endpoint checks
-    exec.spec.ts           -- /exec command and tool tests
-    hooks.spec.ts          -- Hooks system tests
+    smoke.spec.ts                -- UI smoke tests, API endpoint checks
+    exec.spec.ts                 -- /exec command and tool tests
+    exec-approve-ui.spec.ts      -- full Approve/Deny card flow
+    hooks.spec.ts                -- Hooks system tests
     bootstrap-context.spec.ts
     bootstrap-interactive.spec.ts
     tool-notifications.spec.ts
+    full-coverage.spec.ts        -- 100+ cases across all features
+    schedule-disable.spec.ts     -- schedule enable/disable lifecycle
+    image-upload.spec.ts         -- image attach UI + multimodal LLM
+    rag-pipeline.spec.ts         -- document upload/search/delete
+    memory-panel.spec.ts         -- memory panel UI
+    model-switcher.spec.ts       -- model dropdown
   playwright.config.ts     -- UI tests (port 3000, reuseExistingServer)
   playwright.api.config.ts -- API-only tests (port 8000, no UI needed)
+  playwright.docker.config.ts -- against running Docker stack
 ```
 
 ### Running Tests
@@ -114,8 +122,10 @@ Run the full suite before committing. If existing tests break, your change has a
 Every change that adds or modifies user-visible behaviour must update:
 
 1. **CLAUDE.md** -- The primary reference for AI agents. Add or update the relevant section.
-2. **README.md** -- User-facing documentation. Update command tables, architecture diagrams, and feature sections.
+2. **README.md** -- User-facing documentation. Update command tables, feature status table, and architecture sections.
 3. **CHANGELOG.md** -- Add entry under `[Unreleased]` with the date. Use Added/Changed/Fixed/Removed categories.
+4. **ROADMAP.md** -- Move completed items from Outstanding to Completed. Add new outstanding items for anything not yet implemented.
+5. **ISSUES.md** -- Mark resolved issues as ✅ Fixed in the priority table and add a **Status** line to the issue description.
 
 ### CHANGELOG Format
 
@@ -172,8 +182,10 @@ tests/e2e/          Playwright test specs
 - [ ] Implement the feature (green)
 - [ ] Run full test suite (no regressions)
 - [ ] Update CLAUDE.md
-- [ ] Update README.md (if user-visible)
-- [ ] Update CHANGELOG.md
+- [ ] Update README.md (feature table + any new commands/endpoints)
+- [ ] Update CHANGELOG.md (`[Unreleased]` section)
+- [ ] Update ROADMAP.md (move items to Completed)
+- [ ] Update ISSUES.md (mark ✅ Fixed, add Status line)
 - [ ] Commit with descriptive message
 - [ ] `docker compose up --build -d`
 - [ ] Run `npx playwright test` against stack

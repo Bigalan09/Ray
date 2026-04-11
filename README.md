@@ -1,6 +1,6 @@
 # Ray
 
-A local-first, privacy-respecting AI personal assistant. Single agent. Single channel (browser UI). Runs entirely on your machine via Docker Compose.
+A local-first, privacy-respecting AI personal assistant. One agent, one browser UI. Runs entirely on your machine via Docker Compose — no data leaves without your permission.
 
 ---
 
@@ -58,22 +58,25 @@ Optional: `ray-ollama` for local model inference (uncomment in `docker-compose.y
 |---------|--------|
 | Streaming chat (SSE) | ✅ |
 | Multi-turn tool calls (agent loop, up to 10 rounds) | ✅ |
-| Web search with citation cards | ✅ `web_search_preview` on supported models |
+| Web search with citation cards | ✅ `web_search` + `web_search_preview` |
 | Persistent conversations (SQLite) | ✅ |
 | Auto-generated conversation titles | ✅ |
-| Vector memory (ChromaDB) | ✅ store/search via `/tool` |
+| Vector memory (ChromaDB) | ✅ store/search + proactive injection per turn |
+| Proactive memory recall | ✅ relevant facts injected before each response |
+| Memory panel (browse/search/delete) | ✅ |
 | Background tasks + WebSocket updates | ✅ |
-| Cron-scheduled tasks | ✅ |
+| Cron-scheduled tasks + enable/disable | ✅ |
 | Webhooks + lifecycle hooks | ✅ |
 | MCP tool servers (stdio, auto-restart) | ✅ |
 | Exec guardrails (allowlist + approval card) | ✅ |
-| Image upload + multimodal chat | ✅ |
-| File upload (UI) | ✅ upload accepted |
-| PDF RAG ingestion | 🔜 pipeline not yet wired |
-| Model switching UI | 🔜 API exists, no dropdown yet |
-| Memory panel (browse/manage memories) | 🔜 |
-| Proactive memory recall | 🔜 |
+| Image upload + multimodal chat | ✅ paste, drag-drop, or file picker |
+| File/PDF RAG ingestion | ✅ chunks embedded in ChromaDB, `document_search` tool |
+| Model switching UI | ✅ dropdown in header |
+| Workspace file editors (Soul/User/Identity) | ✅ |
+| Schedule enable/disable | ✅ |
 | Settings panel | 🔜 |
+| API key management UI | 🔜 use `POST /api/auth/generate-key` |
+| MCP server management form | 🔜 edit `workspace/mcp_servers.json` directly |
 
 ---
 
