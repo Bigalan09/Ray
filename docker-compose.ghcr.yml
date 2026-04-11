@@ -1,0 +1,84 @@
+services:
+  ray-ui:
+    image: ghcr.io/bigalan09/ray-ui:${RAY_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - API_URL=http://ray-api:8000
+    depends_on:
+      ray-api:
+        condition: service_healthy
+    networks:
+      - ray-net
+
+  ray-api:
+    image: ghcr.io/bigalan09/ray-api:${RAY_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./workspace:/workspace
+      - ./config:/config:ro
+      - ./workspace-template:/workspace-template:ro
+    environment:
+      - CHROMA_HOST=ray-chromadb
+      - CHROMA_PORT=8000
+      - REDIS_URL=redis://ray-redis:6379/0
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      - ray-chromadb
+      - ray-redis
+    networks:
+      - ray-net
+
+  ray-worker:
+    image: ghcr.io/bigalan09/ray-api:${RAY_TAG:-latest}
+    restart: unless-stopped
+    command: python -m worker
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://ray-redis:6379/0
+      - CHROMA_HOST=ray-chromadb
+      - CHROMA_PORT=8000
+    volumes:
+      - ./workspace:/workspace
+      - ./config:/config:ro
+      - ./workspace-template:/workspace-template:ro
+    depends_on:
+      - ray-redis
+      - ray-chromadb
+    networks:
+      - ray-net
+
+  ray-chromadb:
+    image: chromadb/chroma:latest
+    restart: unless-stopped
+    volumes:
+      - chroma-data:/chroma/chroma
+    networks:
+      - ray-net
+
+  ray-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - ray-net
+
+networks:
+  ray-net:
+    driver: bridge
+
+volumes:
+  chroma-data:
+  redis-data:
