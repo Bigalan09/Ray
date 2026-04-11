@@ -1,0 +1,39 @@
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+
+  # Output format: "json" (structured, for log aggregation) or "text" (human-readable)
+  format: "json"
+
+  # Log every HTTP request with method, path, status, duration, and correlation ID
+  enable_request_logging: true
+
+  # Log LLM requests (model, agent, message count, tool count, temperature)
+  # and responses (finish reason, token usage, duration)
+  enable_llm_logging: true
+
+  # When true, log the full system prompt and message list sent to the LLM.
+  # Can be very verbose — enable only for debugging.
+  llm_log_inputs: false
+
+  # When true, log the full LLM response text.
+  # Can be very verbose — enable only for debugging.
+  llm_log_outputs: false
+
+  # Truncate long string values in logs to this length (0 = no limit).
+  max_log_length: 1000
+
+  # Expose Prometheus metrics at this path. Set to "" to disable.
+  metrics_path: "/metrics"
+
+  # Requests slower than this threshold (ms) are logged at WARNING level.
+  slow_request_threshold_ms: 5000
+
+  # Log tool call invocations and results
+  enable_tool_logging: true
+
+  # Paths excluded from request logging (health checks, etc.)
+  request_log_exclude_paths:
+    - "/health"
+    - "/metrics"
+    - "/favicon.ico"

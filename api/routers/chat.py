@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time as _time
 
 import httpx
 from fastapi import APIRouter, Request
@@ -14,10 +15,12 @@ from agents.router import route_message
 from agents.base import build_agent_context
 from agents.prompt_builder import load_workspace_file
 from commands.builtin import _extract_user_name
-import logging
+import structlog
 from llm.providers import resolve_model_provider, RetryableStreamError
+from observability.llm_logger import log_llm_request, log_llm_response, log_llm_retry, log_tool_call
+from observability.metrics import chat_requests_total, chat_tool_rounds_total
 
-log = logging.getLogger(__name__)
+log = structlog.get_logger("ray.chat")
 router = APIRouter()
 
 _KEEPALIVE = {"data": json.dumps({"ray_metadata": {"type": "keepalive"}})}
@@ -296,12 +299,20 @@ async def _chat_direct(
     from hooks.engine import hook_engine
 
     provider, resolved_model = resolve_model_provider(model)
+    provider_name = type(provider).__name__
     enabled_tools = agent_ctx["tools"]
 
     if messages and messages[0].get("role") == "system":
         messages = [{"role": "system", "content": agent_ctx["system_prompt"]}, *messages[1:]]
     else:
         messages = [{"role": "system", "content": agent_ctx["system_prompt"]}, *messages]
+
+    try:
+        chat_requests_total.labels(
+            agent=agent_name, has_tools=str(bool(enabled_tools))
+        ).inc()
+    except Exception:
+        pass
 
     MAX_TOOL_ROUNDS = 10
 
@@ -317,6 +328,18 @@ async def _chat_direct(
         for _round in range(MAX_TOOL_ROUNDS):
             tool_calls: list[dict] = []
             finish_reason = ""
+            round_usage: dict = {}
+
+            round_start = log_llm_request(
+                model=resolved_model,
+                provider=provider_name,
+                agent=agent_name,
+                message_count=len(conversation),
+                tool_count=len(enabled_tools) if enabled_tools else 0,
+                temperature=temperature,
+                system_prompt=conversation[0].get("content") if conversation and conversation[0].get("role") == "system" else None,
+                messages=conversation,
+            )
 
             async for raw_line in provider.stream_chat(
                 messages=conversation,
@@ -358,6 +381,10 @@ async def _chat_direct(
                     fr = choice.get("finish_reason")
                     if fr:
                         finish_reason = fr
+
+                    # Capture token usage from the completion event
+                    if parsed.get("usage"):
+                        round_usage = parsed["usage"]
                 except json.JSONDecodeError:
                     pass
 
@@ -368,9 +395,28 @@ async def _chat_direct(
             # causing the index-based while-loop to pre-allocate empty entries).
             tool_calls = [tc for tc in tool_calls if tc["function"].get("name")]
 
+            log_llm_response(
+                model=resolved_model,
+                provider=provider_name,
+                agent=agent_name,
+                finish_reason=finish_reason or "stop",
+                prompt_tokens=round_usage.get("prompt_tokens", 0),
+                completion_tokens=round_usage.get("completion_tokens", 0),
+                total_tokens=round_usage.get("total_tokens", 0),
+                tool_call_count=len(tool_calls),
+                round_number=_round + 1,
+                start_time=round_start,
+                response_text=accumulated_response if finish_reason != "tool_calls" else None,
+            )
+
             # No tool calls: the model produced a final response
             if finish_reason != "tool_calls" or not tool_calls:
                 break
+
+            try:
+                chat_tool_rounds_total.labels(agent=agent_name).inc()
+            except Exception:
+                pass
 
             # Execute all tool calls in this round
             tool_messages = []
@@ -381,7 +427,9 @@ async def _chat_direct(
                 except json.JSONDecodeError:
                     args = {}
                 yield {"data": json.dumps({"ray_tool": {"name": tc_name, "status": "running", "arguments": args}})}
+                tc_start = _time.perf_counter()
                 result = await _execute_tool(tc_name, args)
+                tc_duration_ms = (_time.perf_counter() - tc_start) * 1000
 
                 # exec_command: wait for user approval, then use the real result
                 if result.get("status") == "approval_required":
@@ -422,6 +470,13 @@ async def _chat_direct(
 
                 has_error = "error" in result
                 result_str = json.dumps(result)
+                log_tool_call(
+                    tool=tc_name,
+                    args=args,
+                    result=result,
+                    error=result.get("error") if has_error else None,
+                    duration_ms=tc_duration_ms,
+                )
                 # Truncate large results for the SSE event (full result still goes to the model)
                 if len(result_str) > 2000:
                     result_preview = {"result": result_str[:2000] + "... (truncated)"}
@@ -474,7 +529,13 @@ async def _chat_direct(
                     parsed_wait = _parse_wait_time("", last_error.retry_after)
                     if parsed_wait > 0:
                         wait = parsed_wait
-                log.info("Retry %d/%d for direct chat (wait %.1fs)", attempt, MAX_RETRIES, wait)
+                log_llm_retry(
+                    model=resolved_model,
+                    provider=provider_name,
+                    attempt=attempt,
+                    status=last_error.status if isinstance(last_error, RetryableStreamError) else 0,
+                    wait_s=wait,
+                )
                 await asyncio.sleep(wait)
             try:
                 async for event in _do_stream():

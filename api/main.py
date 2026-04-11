@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from config import settings
 from routers import chat, models, prompts, tools, conversations, memory, agents, identity, tasks as tasks_router, ws, documents, commands
@@ -14,9 +14,13 @@ from tasks.scheduler import start_scheduler, stop_scheduler, get_scheduled_jobs
 from security.auth import generate_api_key, _load_api_key, verify_api_key
 from security.rate_limit import check_rate_limit
 from security.audit import get_audit_log, log_request
+from observability.setup import configure_logging, get_log_config
+from observability.middleware import ObservabilityMiddleware
 
-PUBLIC_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
+PUBLIC_PATHS = {"/health", "/docs", "/openapi.json", "/redoc", "/metrics"}
 PUBLIC_PREFIXES = ("/api/auth/",)
+
+configure_logging()
 
 
 @asynccontextmanager
@@ -45,6 +49,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Ray API", version="0.2.0", lifespan=lifespan)
 
+app.add_middleware(ObservabilityMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -114,6 +119,18 @@ app.include_router(skills_router.router, prefix="/api")
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint. Disable by setting metrics_path: '' in config/logging.yaml."""
+    cfg = get_log_config()
+    metrics_path = cfg.get("metrics_path", "/metrics")
+    if not metrics_path:
+        return JSONResponse(status_code=404, content={"detail": "Metrics disabled"})
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    from observability.metrics import REGISTRY
+    return Response(content=generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/api/mcp/status")

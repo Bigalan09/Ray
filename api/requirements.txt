@@ -12,3 +12,5 @@ tzdata>=2024.1
 chromadb==1.0.7
 redis>=5.0.0
 apscheduler>=3.10.0
+structlog>=24.0.0
+prometheus-client>=0.20.0

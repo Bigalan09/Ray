@@ -16,7 +16,10 @@ from routers.ws import broadcast_task_update
 from memory.conversation import create_conversation, add_message
 
 import logging
-log = logging.getLogger(__name__)
+import time as _time
+import structlog
+log = structlog.get_logger("ray.tasks")
+from observability.llm_logger import log_tool_call
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
@@ -172,7 +175,17 @@ async def _complete_non_streaming(
                 args = json.loads(tc["function"]["arguments"])
             except json.JSONDecodeError:
                 args = {}
-            result = await execute_tool(tc["function"]["name"], args)
+            tc_name = tc["function"]["name"]
+            tc_start = _time.perf_counter()
+            result = await execute_tool(tc_name, args)
+            tc_duration_ms = (_time.perf_counter() - tc_start) * 1000
+            log_tool_call(
+                tool=tc_name,
+                args=args,
+                result=result,
+                error=result.get("error") if "error" in result else None,
+                duration_ms=tc_duration_ms,
+            )
             tool_messages.append({
                 "role": "tool",
                 "tool_call_id": tc["id"],
