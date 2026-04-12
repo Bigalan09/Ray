@@ -87,7 +87,16 @@ def check_rate_limit(request: Request) -> None:
     r = _get_redis()
 
     if r:
-        _check_redis(r, client_key, rpm, burst)
+        try:
+            _check_redis(r, client_key, rpm, burst)
+        except HTTPException:
+            raise
+        except Exception:
+            # Redis write failed (e.g. disk full, RDB error) — fall back to
+            # in-memory so a storage hiccup doesn't block all requests.
+            global _redis_client
+            _redis_client = None
+            _check_memory(client_key, rpm, burst)
     else:
         _check_memory(client_key, rpm, burst)
 
