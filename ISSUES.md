@@ -59,7 +59,7 @@ Last updated: 2026-04-11. Generated from full codebase audit + E2E gap review.
 **Status**: Fixed. `MCPPanel.tsx` now includes an add-server form (name, command, args), per-server enable/disable and restart buttons, and a remove button. Backed by existing `POST/DELETE/PATCH /api/mcp/servers` endpoints. Covered by `mcp-panel.spec.ts`.
 
 ### 12. Settings panel missing entirely
-No UI for editing rate limits, exec allow-list, model defaults, or any other configuration. Everything requires file edits or raw API calls.
+**Status**: Fixed. `SettingsPanel.tsx` added — writable logging toggles (level, slow request threshold, request/tool/LLM/metrics logging), plus read-only sections for model config, rate limits, and exec guardrails. Save button patches `PATCH /api/settings`, reset button calls `DELETE /api/settings/overrides`. Accessible via "Settings" nav button in sidebar. Covered by `settings-panel.spec.ts`.
 
 ### 13. `/agent` slash command not registered
 **Status**: Fixed. `/agent [name]` registered in `api/commands/builtin.py`. `/agent list` shows available agents; `/agent <name>` redirects the current message through the named agent. Unknown names return an error. `chat.py` extracts `explicit_agent` from redirect results and passes it to `route_message()`.
@@ -161,7 +161,7 @@ The hook engine emits all events. Webhook CRUD is UI-visible and tested. But the
 | 9 | Workspace file editors UI | Small | Low | ✅ Fixed |
 | 10 | API key management UI | Small | Low | ✅ Fixed |
 | 11 | MCP server form | Medium | Low | ✅ Fixed |
-| 12 | Settings panel | Large | Low | ⬜ Todo |
+| 12 | Settings panel | Large | Low | ✅ Fixed |
 | 13 | `/agent` slash command | Small | Low | ✅ Fixed |
 | 14 | Skill builder UI | Medium | Low | ✅ Fixed |
 | 16 | E2E: proactive memory recall | Small | Low | ✅ Fixed |

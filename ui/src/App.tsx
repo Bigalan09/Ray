@@ -12,6 +12,7 @@ import { HooksPanel } from "@/components/HooksPanel";
 import { MemoryPanel } from "@/components/MemoryPanel";
 import { WorkspacePanel } from "@/components/WorkspacePanel";
 import { SkillsPanel } from "@/components/SkillsPanel";
+import { SettingsPanel } from "@/components/SettingsPanel";
 import { ToastContainer, type ToastMessage } from "@/components/Toast";
 import "./index.css";
 
@@ -47,6 +48,7 @@ const App: React.FC = () => {
   const [showMemory, setShowMemory] = useState(false);
   const [showWorkspace, setShowWorkspace] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [taskAlertCount, setTaskAlertCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -566,6 +568,7 @@ const App: React.FC = () => {
           onShowHooks={() => setShowHooks(true)}
           onShowMemory={() => setShowMemory(true)}
           onShowSkills={() => setShowSkills(true)}
+          onShowSettings={() => setShowSettings(true)}
         />
 
         <div className="flex-1 flex flex-col">
@@ -627,6 +630,7 @@ const App: React.FC = () => {
       <MemoryPanel visible={showMemory} onClose={() => setShowMemory(false)} />
       <WorkspacePanel visible={showWorkspace} onClose={() => setShowWorkspace(false)} />
       <SkillsPanel visible={showSkills} onClose={() => setShowSkills(false)} />
+      <SettingsPanel visible={showSettings} onClose={() => setShowSettings(false)} />
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
