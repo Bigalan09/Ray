@@ -44,9 +44,10 @@ test.describe("Skills API", () => {
 
   test("DELETE /api/skills/:name removes a user-created skill", async ({ request }) => {
     const uniqueName = `test-delete-${Date.now()}`;
-    await request.post("/api/skills", {
+    const createResp = await request.post("/api/skills", {
       data: { name: uniqueName, description: "To delete", prompt: "Test {input}", agent: "general" },
     });
+    expect(createResp.ok()).toBeTruthy();
 
     const resp = await request.delete(`/api/skills/${uniqueName}`);
     expect(resp.ok()).toBeTruthy();
@@ -80,14 +81,15 @@ test.describe("Skills panel UI", () => {
   test("Skills panel opens from sidebar", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await page.locator("button[title='Skills']").click();
-    await expect(page.locator("text=Skills")).toBeVisible({ timeout: 3000 });
+    await page.locator("button:has-text('Skills'), button[title='Skills']").first().click();
+    // Panel header is more specific than sidebar button text
+    await expect(page.locator(".font-semibold:has-text('Skills'), h2:has-text('Skills')").first()).toBeVisible({ timeout: 3000 });
   });
 
   test("Skills panel lists existing skills", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await page.locator("button[title='Skills']").click();
-    await expect(page.locator("text=summarise")).toBeVisible({ timeout: 5000 });
+    await page.locator("button:has-text('Skills'), button[title='Skills']").first().click();
+    await expect(page.locator(".text-sm.font-medium:has-text('summarise')").first()).toBeVisible({ timeout: 5000 });
   });
 });

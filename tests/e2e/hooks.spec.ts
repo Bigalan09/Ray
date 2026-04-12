@@ -41,8 +41,9 @@ test.describe("Hooks API", () => {
       data: { name: "list-test", url: "https://example.com/hook", events: ["message_received"] },
     });
     const resp = await request.get("/api/hooks/webhooks");
+    expect(resp.ok()).toBeTruthy();
     const webhooks = await resp.json();
-    const names = webhooks.map((w: any) => w.name);
+    const names = (webhooks as any[]).map((w) => w.name);
     expect(names).toContain("list-test");
   });
 
@@ -57,7 +58,8 @@ test.describe("Hooks API", () => {
 
     // Verify gone
     const listResp = await request.get("/api/hooks/webhooks");
-    const names = (await listResp.json()).map((w: any) => w.name);
+    expect(listResp.ok()).toBeTruthy();
+    const names = ((await listResp.json()) as any[]).map((w) => w.name);
     expect(names).not.toContain("to-delete");
   });
 

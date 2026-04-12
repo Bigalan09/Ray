@@ -33,7 +33,7 @@ test.describe("Schedule enable/disable", () => {
 
     const resp = await request.get("/api/schedules");
     expect(resp.ok()).toBeTruthy();
-    const schedules = await resp.json();
+    const schedules = await resp.json() as any[];
     const schedule = schedules.find((s: any) => s.name === TEST_SCHEDULE.name);
     expect(schedule).toBeTruthy();
     expect(schedule.enabled).toBe(true);
@@ -55,7 +55,8 @@ test.describe("Schedule enable/disable", () => {
     await request.patch(`/api/schedules/${TEST_SCHEDULE.name}`, { data: { enabled: false } });
 
     const resp = await request.get("/api/schedules");
-    const schedules = await resp.json();
+    expect(resp.ok()).toBeTruthy();
+    const schedules = await resp.json() as any[];
     const schedule = schedules.find((s: any) => s.name === TEST_SCHEDULE.name);
     expect(schedule).toBeTruthy();
     expect(schedule.enabled).toBe(false);

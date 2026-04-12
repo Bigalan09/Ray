@@ -8,7 +8,12 @@
  */
 import { test, expect } from "@playwright/test";
 
-test.describe("API key management API", () => {
+// Run serially: key creation/deletion affects global auth state
+test.describe.serial("API key management API", () => {
+  test.afterEach(async ({ request }) => {
+    // Always clean up so subsequent tests start without auth
+    await request.delete("/api/auth/key");
+  });
   test("GET /api/auth/status returns auth_enabled bool", async ({ request }) => {
     const resp = await request.get("/api/auth/status");
     expect(resp.ok()).toBeTruthy();
@@ -49,17 +54,13 @@ test.describe("API key management API", () => {
     await request.delete("/api/auth/key");
   });
 
-  test("POST /api/auth/key without force returns error if key exists", async ({ request }) => {
+  test("POST /api/auth/key without force returns 409 if key exists", async ({ request }) => {
     await request.delete("/api/auth/key");
     await request.post("/api/auth/key");
 
     const resp = await request.post("/api/auth/key");
-    expect(resp.ok()).toBeTruthy();
-    const data = await resp.json();
-    expect(data.error).toBeTruthy();
-
-    // Cleanup
-    await request.delete("/api/auth/key");
+    // Returns 409 Conflict when a key already exists and force is not set
+    expect(resp.status()).toBe(409);
   });
 });
 

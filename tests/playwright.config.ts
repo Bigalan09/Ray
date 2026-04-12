@@ -10,6 +10,7 @@ const pythonBin = process.env.PYTHON_BIN || "python3";
 
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./support/global-setup.ts",
   timeout: 30000,
   retries: 1,
   use: {
