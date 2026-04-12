@@ -1,3 +1,4 @@
+import { SlidePanel, CloseButton } from "./SlidePanel";
 import React, { useState, useEffect, useRef } from "react";
 
 type TabKey = "soul" | "me" | "identity";
@@ -130,29 +131,12 @@ export function WorkspacePanel({ visible, onClose }: WorkspacePanelProps) {
     }
   };
 
-  if (!visible) return null;
-
   return (
-    <div
-      className="fixed top-10 left-0 right-0 bottom-0 bg-black/50 z-50 flex justify-end"
-      onClick={onClose}
-    >
-      <div
-        className="w-96 bg-[var(--bg-deeper)] border-l border-[var(--border)] flex flex-col h-full"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
-          <span className="font-semibold text-gray-200">Workspace Files</span>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white rounded-lg p-1 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    <SlidePanel visible={visible} onClose={onClose} width="24rem">
+      <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
+        <span className="font-semibold text-gray-200">Workspace Files</span>
+        <CloseButton onClick={onClose} />
+      </div>
 
         {/* Tabs */}
         <div className="flex border-b border-[var(--border)]">
@@ -216,7 +200,6 @@ export function WorkspacePanel({ visible, onClose }: WorkspacePanelProps) {
             </div>
           ))}
         </div>
-      </div>
-    </div>
+    </SlidePanel>
   );
 }

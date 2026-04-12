@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { SlidePanel, CloseButton, inputCls } from "./SlidePanel";
 
 interface Webhook {
   name: string;
@@ -64,12 +65,10 @@ export function HooksPanel({ visible, onClose }: HooksPanelProps) {
   const [ruleForm, setRuleForm] = useState(EMPTY_RULE);
   const [ruleError, setRuleError] = useState("");
 
+  const loadAll = () => Promise.all([loadWebhooks(), loadRules(), loadLog()]);
+
   useEffect(() => {
-    if (visible) {
-      loadWebhooks();
-      loadRules();
-      loadLog();
-    }
+    if (visible) loadAll();
   }, [visible]);
 
   const loadWebhooks = async () => {
@@ -181,16 +180,9 @@ export function HooksPanel({ visible, onClose }: HooksPanelProps) {
     loadRules();
   };
 
-  if (!visible) return null;
-
   return (
-    <div className="fixed top-10 left-0 right-0 bottom-0 bg-black/50 z-50 flex justify-end" onClick={onClose}>
-      <div
-        className="w-[28rem] bg-[var(--bg-deeper)] border-l border-[var(--border)] flex flex-col h-full shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
+    <SlidePanel visible={visible} onClose={onClose}>
+      <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
           <div className="flex gap-2">
             <button
               onClick={() => setTab("webhooks")}
@@ -231,16 +223,12 @@ export function HooksPanel({ visible, onClose }: HooksPanelProps) {
               </button>
             )}
             <button
-              onClick={() => { loadWebhooks(); loadRules(); loadLog(); }}
+              onClick={loadAll}
               className="text-xs text-gray-400 hover:text-gray-200 px-2 py-1 rounded transition-colors"
             >
               Refresh
             </button>
-            <button onClick={onClose} className="text-gray-500 hover:text-white p-1 rounded transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <CloseButton onClick={onClose} />
           </div>
         </div>
 
@@ -499,7 +487,6 @@ export function HooksPanel({ visible, onClose }: HooksPanelProps) {
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </SlidePanel>
   );
 }

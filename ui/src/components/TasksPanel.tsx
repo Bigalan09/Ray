@@ -1,3 +1,4 @@
+import { SlidePanel, CloseButton } from "./SlidePanel";
 import React, { useState, useEffect } from "react";
 
 interface Task {
@@ -52,19 +53,11 @@ export function TasksPanel({ visible, onClose }: TasksPanelProps) {
   };
 
   return (
-    <div className="fixed top-10 left-0 right-0 bottom-0 bg-black/50 z-50 flex justify-end" onClick={onClose}>
-      <div className="w-96 bg-[var(--bg-deeper)] border-l border-[var(--border)] flex flex-col h-full" onClick={(e) => e.stopPropagation()}>
-        <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
-          <span className="font-semibold text-gray-200">Background Tasks</span>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white rounded-lg p-1 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    <SlidePanel visible={visible} onClose={onClose} width="24rem">
+      <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
+        <span className="font-semibold text-gray-200">Background Tasks</span>
+        <CloseButton onClick={onClose} />
+      </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
           {loading && <div className="text-gray-500 text-sm p-4">Loading...</div>}
@@ -108,7 +101,6 @@ export function TasksPanel({ visible, onClose }: TasksPanelProps) {
             Refresh
           </button>
         </div>
-      </div>
-    </div>
+    </SlidePanel>
   );
 }

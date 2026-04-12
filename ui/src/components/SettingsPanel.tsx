@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { SlidePanel, CloseButton } from "./SlidePanel";
 
 interface LoggingSettings {
   level?: string;
@@ -52,6 +53,7 @@ export function SettingsPanel({ visible, onClose }: SettingsPanelProps) {
   const [saving, setSaving] = useState(false);
   const [resetConfirm, setResetConfirm] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (visible) load();
@@ -97,9 +99,10 @@ export function SettingsPanel({ visible, onClose }: SettingsPanelProps) {
   const handleReset = async () => {
     if (!resetConfirm) {
       setResetConfirm(true);
-      setTimeout(() => setResetConfirm(false), 3000);
+      resetTimer.current = setTimeout(() => setResetConfirm(false), 3000);
       return;
     }
+    if (resetTimer.current) clearTimeout(resetTimer.current);
     setResetConfirm(false);
     setSaving(true);
     try {
@@ -116,29 +119,12 @@ export function SettingsPanel({ visible, onClose }: SettingsPanelProps) {
   const logVal = (key: keyof LoggingSettings) =>
     key in edits ? edits[key] : settings?.logging[key];
 
-  if (!visible) return null;
-
   return (
-    <div
-      className="fixed top-10 left-0 right-0 bottom-0 bg-black/50 z-50 flex justify-end"
-      onClick={onClose}
-    >
-      <div
-        className="w-[28rem] bg-[var(--bg-deeper)] border-l border-[var(--border)] flex flex-col h-full"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
-          <span className="font-semibold text-gray-200">Settings</span>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white rounded-lg p-1 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    <SlidePanel visible={visible} onClose={onClose}>
+      <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
+        <span className="font-semibold text-gray-200">Settings</span>
+        <CloseButton onClick={onClose} />
+      </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-4">
           {!settings ? (
@@ -264,8 +250,7 @@ export function SettingsPanel({ visible, onClose }: SettingsPanelProps) {
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </SlidePanel>
   );
 }
 

@@ -1,3 +1,4 @@
+import { SlidePanel, CloseButton } from "./SlidePanel";
 import React, { useState, useEffect, useRef } from "react";
 
 interface Skill {
@@ -90,27 +91,17 @@ export function SkillsPanel({ visible, onClose }: SkillsPanelProps) {
     }
   };
 
-  if (!visible) return null;
-
   return (
-    <div
-      className="fixed top-10 left-0 right-0 bottom-0 bg-black/50 z-50 flex justify-end"
-      onClick={onClose}
-    >
-      <div
-        className="w-[28rem] bg-[var(--bg-deeper)] border-l border-[var(--border)] flex flex-col h-full"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
-          <span className="font-semibold text-gray-200">Skills</span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setShowForm(!showForm); setError(null); setForm(EMPTY_FORM); }}
-              className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-            >
-              {showForm ? "Cancel" : "+ New skill"}
-            </button>
+    <SlidePanel visible={visible} onClose={onClose}>
+      <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
+        <span className="font-semibold text-gray-200">Skills</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setShowForm(!showForm); setError(null); setForm(EMPTY_FORM); }}
+            className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+          >
+            {showForm ? "Cancel" : "+ New skill"}
+          </button>
             <button onClick={onClose} className="text-gray-400 hover:text-white rounded-lg p-1 transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -198,7 +189,6 @@ export function SkillsPanel({ visible, onClose }: SkillsPanelProps) {
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </SlidePanel>
   );
 }

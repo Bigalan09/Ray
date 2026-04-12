@@ -1,3 +1,4 @@
+import { SlidePanel, CloseButton } from "./SlidePanel";
 import React, { useState, useEffect } from "react";
 
 interface Schedule {
@@ -114,31 +115,22 @@ export function SchedulePanel({ visible, onClose }: SchedulePanelProps) {
   const isCustom = FREQUENCIES[freqIndex].label === "Custom cron";
 
   return (
-    <div className="fixed top-10 left-0 right-0 bottom-0 bg-black/50 z-50 flex justify-end" onClick={onClose}>
-      <div className="w-[28rem] bg-[var(--bg-deeper)] border-l border-[var(--border)] flex flex-col h-full" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
-          <span className="font-semibold text-gray-200">Scheduled Tasks</span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowCreate(true)}
-              className="text-xs bg-[var(--bg-badge)] hover:bg-[var(--bg-hover)] text-gray-200 rounded-lg px-3 py-1.5 transition-colors flex items-center gap-1"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              New task
-            </button>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-white rounded-lg p-1 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+    <SlidePanel visible={visible} onClose={onClose}>
+      <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
+        <span className="font-semibold text-gray-200">Scheduled Tasks</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="text-xs bg-[var(--bg-badge)] hover:bg-[var(--bg-hover)] text-gray-200 rounded-lg px-3 py-1.5 transition-colors flex items-center gap-1"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            New task
+          </button>
+          <CloseButton onClick={onClose} />
         </div>
+      </div>
 
         {/* Description */}
         <div className="px-3 py-2 text-xs text-gray-500 border-b border-[var(--border)]">
@@ -183,7 +175,7 @@ export function SchedulePanel({ visible, onClose }: SchedulePanelProps) {
             Refresh
           </button>
         </div>
-      </div>
+
 
       {/* Create modal */}
       {showCreate && (
@@ -295,6 +287,6 @@ export function SchedulePanel({ visible, onClose }: SchedulePanelProps) {
           </div>
         </div>
       )}
-    </div>
+    </SlidePanel>
   );
 }
