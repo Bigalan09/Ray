@@ -60,6 +60,7 @@ const App: React.FC = () => {
   const [streamTools, setStreamTools] = useState<ToolEvent[]>([]);
   const streamToolsRef = useRef<ToolEvent[]>([]);
   const streamCitationsRef = useRef<Citation[]>([]);
+  const [responseDuration, setResponseDuration] = useState<number | null>(null);
   const [execPending, setExecPending] = useState<{
     pending_id: string;
     command: string;
@@ -342,6 +343,7 @@ const App: React.FC = () => {
 
   const streamResponse = async (msgHistory: Message[], convId: string | null, saveMessages = true) => {
     abortRef.current = new AbortController();
+    setResponseDuration(null);
 
     // Create conversation if none exists, then persist user messages
     if (!convId) {
@@ -435,7 +437,12 @@ const App: React.FC = () => {
           try {
             const parsed = JSON.parse(data);
 
-            if (parsed.ray_metadata) continue;
+            if (parsed.ray_metadata) {
+              if (parsed.ray_metadata.type === "timing") {
+                setResponseDuration(parsed.ray_metadata.duration_s);
+              }
+              continue;
+            }
 
             // Tool call events: merge arguments from "running" into the completion event
             if (parsed.ray_tool) {
@@ -619,6 +626,7 @@ const App: React.FC = () => {
             totalTokens={totalTokens}
             promptTokens={promptTokens}
             completionTokens={completionTokens}
+            responseDuration={responseDuration}
           />
         </div>
       </div>

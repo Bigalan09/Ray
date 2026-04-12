@@ -140,6 +140,42 @@ If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang 
 
 ---
 
+## P5 — Mobile / Responsive
+
+### 34. Sidebar blocks content on narrow screens
+**Symptom**: On screens < 768 px the `ConversationList` sidebar (fixed `w-56`) stays visible and eats half the viewport, leaving the chat area too narrow to read. There is no overlay/drawer mode or auto-collapse on small screens.  
+**Fix**: detect viewport width (or use a CSS `md:` breakpoint); on mobile collapse the sidebar by default and render it as a full-height overlay drawer with a backdrop. Auto-close after selecting a conversation.
+
+### 35. Touch targets are too small throughout
+**Symptom**: Buttons in the sidebar nav (`p-1 rounded`), per-message action icons (`w-3.5 h-3.5`), panel close buttons, and many inline actions fall well below the 44 × 44 px minimum touch target recommended by WCAG / Apple HIG. On a touchscreen these are nearly impossible to tap accurately.  
+**Fix**: Audit every interactive element in `ConversationList`, `Header`, the panel headers, and the message action row. Increase minimum tap area to 44 × 44 px via padding or `min-h-[44px] min-w-[44px]` wrappers.
+
+### 36. Slide panels overflow or are too narrow on small screens
+**Symptom**: `SlidePanel` renders with fixed pixel widths (`width: 28rem`, `24rem`). On a 375 px iPhone screen this renders a panel that's 75 % of the viewport width — fine — but the inner content (form fields, tables) was designed for desktop and wraps badly. On very narrow devices the panel can overflow the right edge.  
+**Fix**: Change SlidePanel width to `min(28rem, 100vw)` on mobile and constrain inner content to `w-full max-w-full`. For very small screens (< 480 px) render panels as full-screen sheets instead of side-drawers.
+
+### 37. Virtual keyboard collapses the chat area on iOS/Android
+**Symptom**: When the soft keyboard opens on mobile, the viewport shrinks. The `InputForm` (fixed at the bottom) is pushed up by the keyboard but the `MessageList` area collapses to almost nothing — messages are hidden behind the input. `messagesEndRef.scrollIntoView` stops working correctly because the layout shifts mid-animation.  
+**Fix**: Use `dvh` (dynamic viewport height) for the root container instead of `h-screen`. Ensure the message container uses `flex-1 min-h-0 overflow-y-auto` and that scroll-into-view fires after the resize event settles. Test on Chrome + Safari mobile.
+
+### 38. StatusBar token row wraps ungracefully at < 360 px
+**Symptom**: The status bar shows `N total | N prompt | N completion` in a single `flex gap-4` row. Below ~360 px the three spans wrap to multiple lines, doubling the status bar height and covering message content.  
+**Fix**: Wrap counts in `flex-wrap` with a smaller `gap-2` or collapse to just the total count on very small screens (`hidden sm:inline`).
+
+### 39. No `<meta name="viewport">` audit — pinch-zoom risk
+**Symptom**: Unknown whether the HTML template includes a proper viewport meta tag. Without `<meta name="viewport" content="width=device-width, initial-scale=1">`, mobile browsers render Ray at desktop scale, making everything tiny.  
+**Fix**: Verify `ui/index.html` contains the correct viewport meta tag. Also consider `user-scalable=no` is **not** set — users should be able to zoom.
+
+### 40. Code blocks and tool result cards overflow horizontally on mobile
+**Symptom**: `<pre>` blocks inside assistant messages and tool result cards (JSON, command output) are wide enough to cause horizontal scroll of the entire message container, which shifts the whole chat view.  
+**Fix**: Add `overflow-x-auto` to `<pre>` and result card wrappers so only the code block scrolls, not the page. Already partly done for markdown code blocks; ensure tool result cards (`ray_tool`) and citations have the same treatment.
+
+### 41. Image attachments in the input bar stack vertically on mobile
+**Symptom**: Multiple image attachment thumbnails are arranged in a horizontal row that can overflow the input width on narrow screens, causing the send button to be clipped.  
+**Fix**: Constrain the attachment strip to `flex-wrap` so images wrap to a second line, or cap the number of visible thumbnails at 2 with an overflow count badge.
+
+---
+
 ## Prioritised Fix Order
 
 | # | Issue | Effort | Impact | Status |

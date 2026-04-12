@@ -18,7 +18,7 @@ from commands.builtin import _extract_user_name
 import structlog
 from llm.providers import resolve_model_provider, RetryableStreamError
 from observability.llm_logger import log_llm_request, log_llm_response, log_llm_retry, log_tool_call
-from observability.metrics import chat_requests_total, chat_tool_rounds_total
+from observability.metrics import chat_requests_total, chat_tool_rounds_total, chat_response_duration
 
 log = structlog.get_logger("ray.chat")
 router = APIRouter()
@@ -532,6 +532,7 @@ async def _chat_direct(
                 log.warning("Failed to persist direct response", exc_info=True)
 
     async def event_generator():
+        t_start = _time.perf_counter()
         last_error = None
         for attempt in range(MAX_RETRIES + 1):
             if attempt > 0:
@@ -551,14 +552,51 @@ async def _chat_direct(
             try:
                 async for event in _do_stream():
                     yield event
+                duration = _time.perf_counter() - t_start
+                try:
+                    chat_response_duration.labels(agent=agent_name, outcome="success").observe(duration)
+                except Exception:
+                    pass
+                yield {"data": json.dumps({"ray_metadata": {"type": "timing", "duration_s": round(duration, 3)}})}
                 return
             except RetryableStreamError as exc:
                 last_error = exc
                 if attempt == MAX_RETRIES:
+                    duration = _time.perf_counter() - t_start
+                    try:
+                        chat_response_duration.labels(agent=agent_name, outcome="error").observe(duration)
+                    except Exception:
+                        pass
                     yield _sse_error(f"Failed after {MAX_RETRIES + 1} attempts: {exc}", retryable=True)
                     yield {"data": "[DONE]"}
                     return
+            except Exception as exc:
+                # Unexpected error: log via structlog so it appears in Loki, then
+                # surface as a graceful SSE error instead of a raw HTTP 500.
+                duration = _time.perf_counter() - t_start
+                log.error(
+                    "Unhandled exception in chat stream",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                    agent=agent_name,
+                    model=resolved_model,
+                    attempt=attempt,
+                    duration_s=round(duration, 3),
+                    exc_info=True,
+                )
+                try:
+                    chat_response_duration.labels(agent=agent_name, outcome="error").observe(duration)
+                except Exception:
+                    pass
+                yield _sse_error(f"Internal error: {type(exc).__name__}: {exc}", retryable=False)
+                yield {"data": "[DONE]"}
+                return
 
+        duration = _time.perf_counter() - t_start
+        try:
+            chat_response_duration.labels(agent=agent_name, outcome="error").observe(duration)
+        except Exception:
+            pass
         yield _sse_error(f"Failed: {last_error}", retryable=True)
         yield {"data": "[DONE]"}
 

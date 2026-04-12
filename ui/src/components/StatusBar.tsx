@@ -5,15 +5,24 @@ interface StatusBarProps {
   totalTokens: number;
   promptTokens: number;
   completionTokens: number;
+  responseDuration?: number | null;
 }
 
-export function StatusBar({ totalTokens, promptTokens, completionTokens }: StatusBarProps) {
+export function StatusBar({ totalTokens, promptTokens, completionTokens, responseDuration }: StatusBarProps) {
   const [showPrompt, setShowPrompt] = useState(false);
 
   return (
     <>
       <div className="border-t border-[var(--border)] bg-[var(--bg-input)] px-4 py-1.5 text-xs">
         <div className="max-w-4xl mx-auto flex gap-4 items-center text-gray-500">
+          {responseDuration != null && (
+            <>
+              <span title="Time to respond (including tool calls)">
+                <span className="text-blue-400 font-semibold">{responseDuration.toFixed(1)}s</span>
+              </span>
+              {totalTokens > 0 && <span className="text-gray-700">|</span>}
+            </>
+          )}
           {totalTokens > 0 && (
             <>
               <span>

@@ -83,3 +83,11 @@ chat_tool_rounds_total = Counter(
     ["agent"],
     registry=REGISTRY,
 )
+
+chat_response_duration = Histogram(
+    "ray_chat_response_duration_seconds",
+    "Total time from first user token to final assistant token (including all tool rounds)",
+    ["agent", "outcome"],  # outcome: success | error
+    buckets=[0.5, 1, 2, 5, 10, 20, 30, 60, 120, 300],
+    registry=REGISTRY,
+)
