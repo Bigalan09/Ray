@@ -56,7 +56,7 @@ Last updated: 2026-04-11. Generated from full codebase audit + E2E gap review.
 **Status**: Fixed. `POST /api/auth/key` (generate/rotate) and `DELETE /api/auth/key` (revoke) added to `api/main.py`. `ApiKeyPanel` component added to sidebar — generate, rotate, revoke, and copy-to-clipboard in one place. Returns 409 when key already exists without `?force=true`.
 
 ### 11. MCP server registration requires manual JSON
-`workspace/mcp_servers.json` must be edited by hand. The MCP panel shows server status but has no form to add/remove servers.
+**Status**: Fixed. `MCPPanel.tsx` now includes an add-server form (name, command, args), per-server enable/disable and restart buttons, and a remove button. Backed by existing `POST/DELETE/PATCH /api/mcp/servers` endpoints. Covered by `mcp-panel.spec.ts`.
 
 ### 12. Settings panel missing entirely
 No UI for editing rate limits, exec allow-list, model defaults, or any other configuration. Everything requires file edits or raw API calls.
@@ -75,8 +75,7 @@ No UI for editing rate limits, exec allow-list, model defaults, or any other con
 **Status**: Covered in full-coverage.spec.ts §7 (live, skips without API key).
 
 ### 16. No E2E test for memory store → recall
-**Status**: Covered in full-coverage.spec.ts §9 (API + `/tool` via chat).  
-**Remaining gap**: No test for proactive recall — store a fact, start a new conversation, ask a related question, verify it appears in the LLM response without explicit `/tool` invocation. Blocked until #4 is implemented.
+**Status**: Covered in full-coverage.spec.ts §9 (API + `/tool` via chat). Proactive recall test added: stores a unique fact, starts a fresh conversation, asks a related question without `/tool`, and asserts the injected memory surfaces the fact in the LLM response (live, auto-skips without `OPENAI_API_KEY`).
 
 ### 17. No E2E test for web search end-to-end
 **Status**: Covered in full-coverage.spec.ts §8 (live).
@@ -161,11 +160,11 @@ The hook engine emits all events. Webhook CRUD is UI-visible and tested. But the
 | 7 | PDF RAG pipeline | Large | Medium | ✅ Fixed |
 | 9 | Workspace file editors UI | Small | Low | ✅ Fixed |
 | 10 | API key management UI | Small | Low | ✅ Fixed |
-| 11 | MCP server form | Medium | Low | ⬜ Todo |
+| 11 | MCP server form | Medium | Low | ✅ Fixed |
 | 12 | Settings panel | Large | Low | ⬜ Todo |
 | 13 | `/agent` slash command | Small | Low | ✅ Fixed |
 | 14 | Skill builder UI | Medium | Low | ✅ Fixed |
-| 16 | E2E: proactive memory recall | Small | Low | ⬜ Blocked by #4 |
+| 16 | E2E: proactive memory recall | Small | Low | ✅ Fixed |
 | 29 | auto_title timeout/fallback | Tiny | Low | ✅ Fixed |
 | 28 | Central model capabilities registry | Small | Low | ✅ Fixed |
 | 33 | Pre/post hook UI + tests | Large | Low | ⬜ Todo |

@@ -594,6 +594,34 @@ test.describe("Memory", () => {
     // Result should mention the stored content or "found" / "result"
     expect(reply.toLowerCase()).toMatch(/recall|found|result|memory|${unique.slice(0, 8)}/i);
   });
+
+  test("proactive memory recall — stored fact appears in LLM response without explicit /tool call", async ({ page, request }) => {
+    requireLLM();
+    // Use a very specific unique token so the ChromaDB search is unambiguous
+    const token = `proj-xray-${Date.now()}`;
+    const fact = `The secret project codename is ${token}.`;
+
+    // Store the fact via API
+    await request.post("/api/tools/execute", {
+      data: { tool_name: "memory_store", arguments: { content: fact, tags: ["e2e-proactive"] } },
+    });
+
+    // Start a fresh conversation and ask a related question — no /tool invocation
+    await freshSession(page);
+    await sendChat(page, `What is the secret project codename? (Answer from memory if you know it.)`);
+    const reply = await waitForAssistantReply(page, 20000);
+
+    // The injected memory section should have surfaced the fact to the LLM
+    expect(reply).toContain(token);
+
+    // Cleanup
+    const searchResp = await request.get(`/api/memory/search?q=${token}&limit=5`);
+    const data = await searchResp.json();
+    const results: any[] = data.results ?? data;
+    for (const r of results) {
+      if (r.id) await request.delete(`/api/memory/${r.id}`);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
