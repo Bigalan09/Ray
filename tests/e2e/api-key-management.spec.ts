@@ -7,12 +7,26 @@
  * Covers ISSUES.md #10.
  */
 import { test, expect } from "@playwright/test";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+
+async function deleteKeyWithAuth(request: import("@playwright/test").APIRequestContext) {
+  const resp = await request.delete("/api/auth/key");
+  if (resp.status() === 401) {
+    try {
+      const key = readFileSync(resolve(__dirname, "../../../workspace/api_key"), "utf-8").trim();
+      await request.delete("/api/auth/key", { headers: { "X-API-Key": key } });
+    } catch {
+      // ignore
+    }
+  }
+}
 
 // Run serially: key creation/deletion affects global auth state
 test.describe.serial("API key management API", () => {
   test.afterEach(async ({ request }) => {
     // Always clean up so subsequent tests start without auth
-    await request.delete("/api/auth/key");
+    await deleteKeyWithAuth(request);
   });
   test("GET /api/auth/status returns auth_enabled bool", async ({ request }) => {
     const resp = await request.get("/api/auth/status");

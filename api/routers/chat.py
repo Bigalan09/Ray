@@ -180,7 +180,10 @@ async def _execute_tool(name: str, arguments: dict) -> dict:
 async def chat(request: Request):
     """SSE streaming chat endpoint."""
     payload = await request.json()
-    messages = payload.get("messages", [])
+    if "messages" not in payload or not isinstance(payload.get("messages"), list):
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=422, content={"detail": "messages is required and must be a list"})
+    messages = payload["messages"]
     model = payload.get("model")
     conversation_id = payload.get("conversation_id")
 
