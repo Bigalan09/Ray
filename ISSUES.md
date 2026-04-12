@@ -136,7 +136,7 @@ If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang 
 **Status**: Fixed in `706c8ab`.
 
 ### 33. Pre/post command hook rules have no UI and no test coverage
-The hook engine emits all events. Webhook CRUD is UI-visible and tested. But the `pre_command` / `post_command` rule type (which can cancel operations) is untested and has no management UI.
+**Status**: Fixed. `HooksPanel.tsx` now has a "Rules" tab alongside "Webhooks". The tab lists all pre/post rules with type badge, trigger pattern, handler, and enable/disable/delete controls. A form allows adding new rules (name, type, trigger, handler). Backed by existing `GET/POST/DELETE/PATCH /api/hooks/rules` endpoints. Covered by `hook-rules.spec.ts`.
 
 ---
 
@@ -167,4 +167,4 @@ The hook engine emits all events. Webhook CRUD is UI-visible and tested. But the
 | 16 | E2E: proactive memory recall | Small | Low | ✅ Fixed |
 | 29 | auto_title timeout/fallback | Tiny | Low | ✅ Fixed |
 | 28 | Central model capabilities registry | Small | Low | ✅ Fixed |
-| 33 | Pre/post hook UI + tests | Large | Low | ⬜ Todo |
+| 33 | Pre/post hook UI + tests | Large | Low | ✅ Fixed |
