@@ -69,7 +69,11 @@ async def get_settings():
             "exec_allow": [
                 {
                     "command": rule.get("command"),
-                    "args": rule.get("args", []),
+                    "args": (
+                        rule["args"] if isinstance(rule.get("args"), list)
+                        else [rule["args"]] if rule.get("args") is not None
+                        else []
+                    ),
                     "description": rule.get("description", ""),
                 }
                 for rule in guardrails_cfg.get("exec", {}).get("allow", [])

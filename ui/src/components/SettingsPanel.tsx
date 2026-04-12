@@ -212,7 +212,7 @@ export function SettingsPanel({ visible, onClose }: SettingsPanelProps) {
                 <div className="mt-1 space-y-1">
                   {settings.guardrails.exec_allow.map((rule, i) => (
                     <div key={i} className="text-xs text-gray-400 font-mono bg-[var(--bg-surface)] rounded px-2 py-1">
-                      {rule.command} {rule.args.join(" ")}
+                      {rule.command} {Array.isArray(rule.args) ? rule.args.join(" ") : rule.args}
                       {rule.description && (
                         <span className="ml-2 text-gray-600 font-sans">{rule.description}</span>
                       )}
