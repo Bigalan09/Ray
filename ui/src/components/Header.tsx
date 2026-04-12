@@ -32,7 +32,7 @@ interface HeaderProps {
 
 export function Header({ sidebarVisible, onToggleSidebar, models = [], selectedModel, onModelChange }: HeaderProps) {
   return (
-    <div className="h-10 border-b border-[var(--border)] flex items-center px-3 bg-[var(--bg-raised)] gap-3" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
+    <div className="h-[44px] border-b border-[var(--border)] flex items-center px-3 bg-[var(--bg-raised)] gap-3" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
       <button
         onClick={onToggleSidebar}
         className="text-gray-400 hover:text-white p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-colors"

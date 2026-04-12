@@ -12,11 +12,11 @@ export function SlidePanel({ visible, onClose, width = "28rem", children }: Slid
   if (!visible) return null;
   return (
     <div
-      className="fixed top-10 left-0 right-0 bottom-0 bg-black/50 z-50 flex justify-end"
+      className="fixed top-[44px] left-0 right-0 bottom-0 bg-black/50 z-50 flex items-stretch justify-end"
       onClick={onClose}
     >
       <div
-        className="bg-[var(--bg-deeper)] border-l border-[var(--border)] flex flex-col h-full shadow-2xl"
+        className="bg-[var(--bg-deeper)] border-l border-[var(--border)] flex flex-col shadow-2xl"
         style={{ width: `min(${width}, 100vw)` }}
         onClick={(e) => e.stopPropagation()}
       >

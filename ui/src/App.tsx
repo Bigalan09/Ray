@@ -299,6 +299,8 @@ const App: React.FC = () => {
     setAttachments([]);
     setStreaming(true);
     setCurrentResponse("");
+    // Close mobile sidebar so it doesn't overlay the chat during streaming
+    if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarVisible(false);
     track("message_sent", { has_attachments: attachments.length > 0, model: selectedModel });
 
     if (textareaRef.current) textareaRef.current.style.height = "auto";
@@ -594,13 +596,13 @@ const App: React.FC = () => {
           visible={sidebarVisible}
           onClose={() => setSidebarVisible(false)}
           taskAlertCount={taskAlertCount}
-          onShowTasks={() => { track("panel_open", { panel: "tasks" }); setShowTasks(true); setTaskAlertCount(0); }}
-          onShowSchedules={() => { track("panel_open", { panel: "schedules" }); setShowSchedules(true); }}
-          onShowMCP={() => { track("panel_open", { panel: "mcp" }); setShowMCP(true); }}
-          onShowHooks={() => { track("panel_open", { panel: "hooks" }); setShowHooks(true); }}
-          onShowMemory={() => { track("panel_open", { panel: "memory" }); setShowMemory(true); }}
-          onShowSkills={() => { track("panel_open", { panel: "skills" }); setShowSkills(true); }}
-          onShowSettings={() => { track("panel_open", { panel: "settings" }); setShowSettings(true); }}
+          onShowTasks={() => { track("panel_open", { panel: "tasks" }); setShowTasks(true); setTaskAlertCount(0); setSidebarVisible(false); }}
+          onShowSchedules={() => { track("panel_open", { panel: "schedules" }); setShowSchedules(true); setSidebarVisible(false); }}
+          onShowMCP={() => { track("panel_open", { panel: "mcp" }); setShowMCP(true); setSidebarVisible(false); }}
+          onShowHooks={() => { track("panel_open", { panel: "hooks" }); setShowHooks(true); setSidebarVisible(false); }}
+          onShowMemory={() => { track("panel_open", { panel: "memory" }); setShowMemory(true); setSidebarVisible(false); }}
+          onShowSkills={() => { track("panel_open", { panel: "skills" }); setShowSkills(true); setSidebarVisible(false); }}
+          onShowSettings={() => { track("panel_open", { panel: "settings" }); setShowSettings(true); setSidebarVisible(false); }}
         />
 
         <div className="flex-1 flex flex-col">
