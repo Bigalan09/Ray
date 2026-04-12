@@ -2,7 +2,7 @@
 
 All notable changes to Ray are documented here.
 
-## [Unreleased] — 2026-04-11
+## [Unreleased] — 2026-04-12
 
 ### Added
 - **Workspace file editors** (`WorkspacePanel.tsx`): Sidebar panel with three tabs — Soul, User, Identity — for editing `SOUL.md`, `USER.md`, and `IDENTITY.md` directly in the UI. Lazy-loads each file on first tab visit. Backed by existing `GET/PUT /api/identity/{soul,me,identity}` endpoints.
@@ -26,6 +26,16 @@ All notable changes to Ray are documented here.
 ### Added (continued)
 - **`/agent` slash command**: `/agent list` shows available agents; `/agent <name>` routes the current message through the named agent. Unknown names return an inline error. `chat.py` extracts `explicit_agent` from redirect results.
 - **E2E: agent command** (`tests/e2e/agent-command.spec.ts`): command listed, list output, valid switch, unknown error.
+- **Browser telemetry (RUM)**: `ui/src/observability/telemetry.ts` — batched event queue flushed every 2 s or on page unload. Events: `page_load`, `message_sent`, `stream_complete`, `chat_error`, `panel_open`, `ui_error`. `POST /api/telemetry` receives events, logs via structlog (`ray.telemetry`), and increments Prometheus counters `ray_ui_events_total{event_name}` and `ray_ui_errors_total{error_type}`. E2E coverage in `tests/e2e/ui-telemetry.spec.ts`.
+- **Response timing in StatusBar**: `responseDuration` state tracked from first SSE chunk to final `ray_metadata` event; shown as `Xs` badge in the status bar with tooltip. Cleared at the start of each new stream.
+- **Mobile sidebar drawer** (issue #34): On viewports < 768 px the sidebar renders as a full-height fixed overlay drawer with a semi-transparent backdrop (`data-testid="sidebar-backdrop"`). Clicking the backdrop or selecting a conversation closes it. Desktop collapses to an icon rail.
+- **Mobile: 44 px touch targets** (issue #35): Hamburger button and all `SlidePanel` close buttons raised to `min-h-[44px] min-w-[44px]` per WCAG 2.5.5.
+- **Mobile: panel width constraint** (issue #36): `SlidePanel` width now uses `min(Xrem, 100vw)` so panels never exceed the viewport on any screen size.
+- **Mobile: dynamic viewport height** (issue #37): Root container changed from `h-screen` to `h-[100dvh]` so the chat area resizes correctly when the virtual keyboard opens on iOS/Android.
+- **Mobile: StatusBar responsive layout** (issue #38): Token row changed to `flex flex-wrap gap-2`; prompt/completion counts and separators hidden on `xs` screens (`hidden sm:inline`) — only total shown on < 640 px.
+- **Mobile: code block overflow** (issue #40): `MessageList` outer container has `min-h-0 overflow-hidden` and message wrappers have `min-w-0 overflow-hidden` so long code blocks scroll horizontally within their container instead of overflowing the page.
+- **Mobile: attachment strip overflow badge** (issue #41): Input bar caps visible thumbnails at 2; additional images shown as a `+N` count badge instead of causing overflow.
+- **E2E: mobile regression suite** (`tests/e2e/mobile.spec.ts`): 12 tests covering all mobile issues #34–#41 including sidebar drawer behaviour, backdrop, touch targets, panel overflow, dvh class, StatusBar width, code block overflow, and attachment badge.
 
 ### Changed
 - **Central model capabilities registry**: `_MODEL_CAPS_BLACKLIST` dict in `api/llm/responses.py` replaces two duplicated `gpt-5-nano` hardcodes. Adding a new restricted model now requires one entry.

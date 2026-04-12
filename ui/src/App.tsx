@@ -41,7 +41,11 @@ const App: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [taskConversations, setTaskConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [sidebarVisible, setSidebarVisible] = useState(() => {
+    // Default to hidden on mobile (< 768px) to avoid obscuring chat content
+    if (typeof window !== "undefined") return window.innerWidth >= 768;
+    return true;
+  });
   const [showTasks, setShowTasks] = useState(false);
   const [showMCP, setShowMCP] = useState(false);
   const [showSchedules, setShowSchedules] = useState(false);
@@ -563,7 +567,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="font-sans bg-[#1e1e1e] text-[#d4d4d4] h-screen flex flex-col">
+    <div className="font-sans bg-[#1e1e1e] text-[#d4d4d4] h-[100dvh] flex flex-col">
       <Header
         sidebarVisible={sidebarVisible}
         onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
@@ -577,11 +581,18 @@ const App: React.FC = () => {
           conversations={conversations}
           taskConversations={taskConversations}
           activeId={activeConversationId}
-          onSelect={selectConversation}
+          onSelect={(id) => {
+            selectConversation(id);
+            // Auto-close drawer on mobile after selecting a conversation
+            if (typeof window !== "undefined" && window.innerWidth < 768) {
+              setSidebarVisible(false);
+            }
+          }}
           onDelete={deleteConversation}
           onDeleteAll={deleteAllConversations}
-          onNew={handleNewChat}
+          onNew={() => { handleNewChat(); if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarVisible(false); }}
           visible={sidebarVisible}
+          onClose={() => setSidebarVisible(false)}
           taskAlertCount={taskAlertCount}
           onShowTasks={() => { track("panel_open", { panel: "tasks" }); setShowTasks(true); setTaskAlertCount(0); }}
           onShowSchedules={() => { track("panel_open", { panel: "schedules" }); setShowSchedules(true); }}

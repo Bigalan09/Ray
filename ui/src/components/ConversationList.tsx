@@ -15,6 +15,7 @@ interface ConversationListProps {
   onDeleteAll: () => void;
   onNew: () => void;
   visible: boolean;
+  onClose?: () => void;
   onShowTasks: () => void;
   onShowSchedules: () => void;
   onShowMCP: () => void;
@@ -89,6 +90,7 @@ export function ConversationList({
   onDeleteAll,
   onNew,
   visible,
+  onClose,
   onShowTasks,
   onShowSchedules,
   onShowMCP,
@@ -103,10 +105,16 @@ export function ConversationList({
   const groupOrder = ["Today", "Yesterday", "This week", "Older"];
   const collapsed = !visible;
 
-  return (
+  // On mobile (<768px) the sidebar is a full-height overlay drawer.
+  // On desktop it collapses to an icon rail.
+  const isMobileOverlay = typeof window !== "undefined" && window.innerWidth < 768;
+
+  if (isMobileOverlay && !visible) return null;
+
+  const sidebar = (
     <div
       className="bg-[var(--bg-deeper)] border-r border-[var(--border)] flex flex-col h-full overflow-hidden transition-all duration-200 ease-in-out"
-      style={{ width: collapsed ? 48 : 256, minWidth: collapsed ? 48 : 256 }}
+      style={isMobileOverlay ? { width: 256, minWidth: 256 } : { width: collapsed ? 48 : 256, minWidth: collapsed ? 48 : 256 }}
     >
       {/* Navigation buttons */}
       <div className={`pt-3 pb-1 flex flex-col gap-0.5 ${collapsed ? "px-1" : "px-3"}`}>
@@ -273,4 +281,21 @@ export function ConversationList({
       )}
     </div>
   );
+
+  if (isMobileOverlay) {
+    return (
+      <>
+        <div
+          data-testid="sidebar-backdrop"
+          className="fixed inset-0 bg-black/50 z-30"
+          onClick={onClose}
+        />
+        <div className="fixed top-0 bottom-0 left-0 z-40 flex">
+          {sidebar}
+        </div>
+      </>
+    );
+  }
+
+  return sidebar;
 }

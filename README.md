@@ -74,9 +74,12 @@ Optional: `ray-ollama` for local model inference (uncomment in `docker-compose.y
 | Model switching UI | ✅ dropdown in header |
 | Workspace file editors (Soul/User/Identity) | ✅ |
 | Schedule enable/disable | ✅ |
-| Settings panel | 🔜 |
-| API key management UI | 🔜 use `POST /api/auth/generate-key` |
-| MCP server management form | 🔜 edit `workspace/mcp_servers.json` directly |
+| Settings panel | ✅ |
+| API key management UI | ✅ |
+| MCP server management form | ✅ |
+| Mobile-responsive UI | ✅ sidebar drawer, 44 px touch targets, dvh layout |
+| Browser telemetry (RUM) | ✅ batched events → structlog + Prometheus |
+| Response timing display | ✅ shown in status bar |
 
 ---
 

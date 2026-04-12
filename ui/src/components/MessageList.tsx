@@ -251,7 +251,7 @@ export function MessageList({
   };
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto p-4 md:p-6 bg-[var(--bg-base)] chat-messages">
+    <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 bg-[var(--bg-base)] chat-messages">
       <div className="max-w-4xl mx-auto">
         {messages.map((msg, i) => {
           if (msg.role === "system") {
@@ -283,7 +283,7 @@ export function MessageList({
 
           return (
             <div key={i} className={`mb-4 animate-fadeIn group ${msg.role === "user" ? "text-right" : "text-left"}`}>
-              <div className={`inline-block max-w-[80%] lg:max-w-[65%]`}>
+              <div className={`inline-block max-w-[80%] lg:max-w-[65%] min-w-0 overflow-hidden`}>
                 {/* Tool chips for assistant messages */}
                 {msg.role === "assistant" && msg.tools && <ToolChips tools={msg.tools} />}
                 {hasContent && (
@@ -321,7 +321,7 @@ export function MessageList({
         {currentResponse && (
           <div className="mb-4 animate-fadeIn">
             {streamTools.length > 0 && <ToolChips tools={streamTools} live={streaming} />}
-            <div className="inline-block bg-gradient-to-br from-[var(--bg-surface)] to-[#1d2127] p-4 rounded-lg max-w-[80%] lg:max-w-[65%] message-content shadow-lg">
+            <div className="inline-block bg-gradient-to-br from-[var(--bg-surface)] to-[#1d2127] p-4 rounded-lg max-w-[80%] lg:max-w-[65%] min-w-0 overflow-hidden message-content shadow-lg">
               {parseMessage(currentResponse)}
               {streaming && <span className="text-blue-400 opacity-70 ml-1 animate-pulse">|</span>}
             </div>

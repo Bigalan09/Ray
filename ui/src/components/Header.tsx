@@ -35,7 +35,7 @@ export function Header({ sidebarVisible, onToggleSidebar, models = [], selectedM
     <div className="h-10 border-b border-[var(--border)] flex items-center px-3 bg-[var(--bg-raised)] gap-3" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
       <button
         onClick={onToggleSidebar}
-        className="text-gray-400 hover:text-white p-1 rounded-lg transition-colors"
+        className="text-gray-400 hover:text-white p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-colors"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         title={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
       >

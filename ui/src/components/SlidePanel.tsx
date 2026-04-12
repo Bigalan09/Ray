@@ -17,7 +17,7 @@ export function SlidePanel({ visible, onClose, width = "28rem", children }: Slid
     >
       <div
         className="bg-[var(--bg-deeper)] border-l border-[var(--border)] flex flex-col h-full shadow-2xl"
-        style={{ width }}
+        style={{ width: `min(${width}, 100vw)` }}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -26,12 +26,13 @@ export function SlidePanel({ visible, onClose, width = "28rem", children }: Slid
   );
 }
 
-/** Reusable close button (X) for panel headers. */
+/** Reusable close button (X) for panel headers. Meets 44×44px touch target. */
 export function CloseButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="text-gray-400 hover:text-white rounded-lg p-1 transition-colors flex-shrink-0"
+      title="Close"
+      className="text-gray-400 hover:text-white rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors flex-shrink-0"
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

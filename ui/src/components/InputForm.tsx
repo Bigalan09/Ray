@@ -178,10 +178,10 @@ export function InputForm({
       onDrop={handleDrop}
     >
       <div className="w-full max-w-4xl mx-auto">
-        {/* Attachment preview strip */}
+        {/* Attachment preview strip — cap at 2 visible + overflow badge */}
         {attachments.length > 0 && (
           <div className="flex gap-2 mb-2 flex-wrap">
-            {attachments.map((att) => (
+            {attachments.slice(0, 2).map((att) => (
               <div key={att.id} className="relative">
                 <img
                   src={att.dataUrl}
@@ -200,6 +200,11 @@ export function InputForm({
                 </button>
               </div>
             ))}
+            {attachments.length > 2 && (
+              <div className="h-16 w-16 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] flex items-center justify-center text-xs text-gray-400">
+                +{attachments.length - 2}
+              </div>
+            )}
           </div>
         )}
 
