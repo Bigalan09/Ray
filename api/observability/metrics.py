@@ -91,3 +91,19 @@ chat_response_duration = Histogram(
     buckets=[0.5, 1, 2, 5, 10, 20, 30, 60, 120, 300],
     registry=REGISTRY,
 )
+
+# --- UI layer (real-user monitoring) ---
+
+ui_events_total = Counter(
+    "ray_ui_events_total",
+    "Total UI events received from the browser",
+    ["event_name"],
+    registry=REGISTRY,
+)
+
+ui_errors_total = Counter(
+    "ray_ui_errors_total",
+    "Total uncaught UI errors received from the browser",
+    ["error_type"],
+    registry=REGISTRY,
+)

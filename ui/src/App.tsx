@@ -14,6 +14,7 @@ import { WorkspacePanel } from "@/components/WorkspacePanel";
 import { SkillsPanel } from "@/components/SkillsPanel";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { ToastContainer, type ToastMessage } from "@/components/Toast";
+import { track } from "@/observability/telemetry";
 import "./index.css";
 
 interface Conversation {
@@ -94,6 +95,15 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    track("page_load", { load_time_ms: Math.round(performance.now()) });
+    window.onerror = (msg, src, _line, _col, err) => {
+      track("ui_error", {
+        error_type: err?.name ?? "Error",
+        message: String(msg),
+        source: src ?? "",
+      });
+    };
+
     loadModels();
 
     const init = async () => {
@@ -285,6 +295,7 @@ const App: React.FC = () => {
     setAttachments([]);
     setStreaming(true);
     setCurrentResponse("");
+    track("message_sent", { has_attachments: attachments.length > 0, model: selectedModel });
 
     if (textareaRef.current) textareaRef.current.style.height = "auto";
 
@@ -440,6 +451,7 @@ const App: React.FC = () => {
             if (parsed.ray_metadata) {
               if (parsed.ray_metadata.type === "timing") {
                 setResponseDuration(parsed.ray_metadata.duration_s);
+                track("stream_complete", { duration_s: parsed.ray_metadata.duration_s });
               }
               continue;
             }
@@ -496,6 +508,7 @@ const App: React.FC = () => {
             // Structured error from backend retry logic
             if (parsed.type === "error") {
               const errMsg = parsed.message || "Unknown error";
+              track("chat_error", { message: errMsg, retryable: !!parsed.retryable });
               setMessages((msgs) => [
                 ...msgs,
                 { role: "system", content: `Error: ${errMsg}` },
@@ -534,6 +547,7 @@ const App: React.FC = () => {
       setStreamTools([]);
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== "AbortError") {
+        track("chat_error", { message: err.message, retryable: true });
         setMessages((msgs) => [
           ...msgs,
           { role: "system", content: `Error: ${err.message}` },
@@ -569,13 +583,13 @@ const App: React.FC = () => {
           onNew={handleNewChat}
           visible={sidebarVisible}
           taskAlertCount={taskAlertCount}
-          onShowTasks={() => { setShowTasks(true); setTaskAlertCount(0); }}
-          onShowSchedules={() => setShowSchedules(true)}
-          onShowMCP={() => setShowMCP(true)}
-          onShowHooks={() => setShowHooks(true)}
-          onShowMemory={() => setShowMemory(true)}
-          onShowSkills={() => setShowSkills(true)}
-          onShowSettings={() => setShowSettings(true)}
+          onShowTasks={() => { track("panel_open", { panel: "tasks" }); setShowTasks(true); setTaskAlertCount(0); }}
+          onShowSchedules={() => { track("panel_open", { panel: "schedules" }); setShowSchedules(true); }}
+          onShowMCP={() => { track("panel_open", { panel: "mcp" }); setShowMCP(true); }}
+          onShowHooks={() => { track("panel_open", { panel: "hooks" }); setShowHooks(true); }}
+          onShowMemory={() => { track("panel_open", { panel: "memory" }); setShowMemory(true); }}
+          onShowSkills={() => { track("panel_open", { panel: "skills" }); setShowSkills(true); }}
+          onShowSettings={() => { track("panel_open", { panel: "settings" }); setShowSettings(true); }}
         />
 
         <div className="flex-1 flex flex-col">

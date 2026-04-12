@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from config import settings
-from routers import chat, models, prompts, tools, conversations, memory, agents, identity, tasks as tasks_router, ws, documents, commands
+from routers import chat, models, prompts, tools, conversations, memory, agents, identity, tasks as tasks_router, ws, documents, commands, telemetry as telemetry_router
 from tools.mcp.manager import start_mcp_servers, stop_mcp_servers, get_server_status
 from tasks.scheduler import start_scheduler, stop_scheduler, get_scheduled_jobs
 from security.auth import generate_api_key, _load_api_key, verify_api_key
@@ -115,6 +115,7 @@ app.include_router(exec_router.router, prefix="/api")
 app.include_router(hooks_router.router, prefix="/api")
 app.include_router(skills_router.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
+app.include_router(telemetry_router.router, prefix="/api")
 
 
 @app.get("/health")
