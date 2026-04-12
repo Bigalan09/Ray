@@ -63,7 +63,8 @@ test.describe("API key management API", () => {
   });
 });
 
-test.describe("API key management UI", () => {
+// API Key panel removed from UI — auth managed via API only
+test.describe.skip("API key management UI", () => {
   test("API Key panel opens from sidebar", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");

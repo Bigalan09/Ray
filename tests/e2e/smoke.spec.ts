@@ -5,14 +5,14 @@ test.describe("Ray UI smoke tests", () => {
     await page.goto("/");
     // Wait for auto-restore to complete before checking elements
     await page.waitForLoadState("networkidle");
-    await expect(page.locator("text=Ray")).toBeVisible();
+    await expect(page.locator("span:has-text('Ray')").first()).toBeVisible();
     await expect(page.locator("textarea")).toBeVisible();
     await expect(page.locator("button:has-text('Send')")).toBeVisible();
   });
 
   test("header shows Ray title and sidebar toggle", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator("text=Ray")).toBeVisible();
+    await expect(page.locator("span:has-text('Ray')").first()).toBeVisible();
   });
 
   test("header does not show model or agent dropdowns", async ({ page }) => {

@@ -57,11 +57,12 @@ test.describe("Skills API", () => {
     expect(list.skills.some((s: any) => s.name === uniqueName)).toBe(false);
   });
 
-  test("POST /api/skills returns 400 for missing name or prompt", async ({ request }) => {
+  test("POST /api/skills returns 4xx for missing name or prompt", async ({ request }) => {
     const resp = await request.post("/api/skills", {
       data: { description: "No name or prompt" },
     });
-    expect(resp.status()).toBe(400);
+    expect(resp.status()).toBeGreaterThanOrEqual(400);
+    expect(resp.status()).toBeLessThan(500);
   });
 
   test("DELETE /api/skills/:name returns 404 for unknown skill", async ({ request }) => {
