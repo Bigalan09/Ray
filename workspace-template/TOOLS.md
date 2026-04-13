@@ -1,11 +1,12 @@
 # TOOLS.md
 
-## Built-in Tools
+## Built-in Tools (20)
 
 ### Information
 - **calculator** - Evaluate maths expressions. Params: `expression`.
 - **get_current_time** - Current date/time. Optional: `timezone` (e.g. Europe/London).
-- **web_search** - Search the web. Params: `query`, optional `max_results`.
+- **web_search** - Search the web via DuckDuckGo. Params: `query`, optional `max_results`.
+- **web_fetch** - Fetch content from a URL, auto-converts HTML to readable text. Params: `url`, optional `raw` (skip conversion).
 
 ### Memory
 - **memory_search** - Search stored memory. Params: `query`, optional `limit`.
@@ -17,6 +18,8 @@
 - **write_file** - Write/create a file. Params: `filename`, `content`. Scoped to /workspace.
 - **read_file** - Read a file. Params: `filename`.
 - **list_files** - List directory contents. Optional: `directory`.
+- **grep_files** - Search file contents with regex. Params: `pattern`, optional `glob`, `max_results`, `context_lines`, `case_insensitive`.
+- **glob_files** - Find files by glob pattern. Params: `pattern`, optional `max_results`.
 
 ### Scheduling
 - **list_schedules** - Show all scheduled tasks and next run times.
@@ -25,7 +28,13 @@
 
 ### Execution
 - **exec_command** - Run an allowlisted system command. Requires user approval. Params: `command`.
+
+### Agent Delegation
 - **spawn_tasks** - Run multiple agent tasks in parallel. Params: `tasks` (array of {prompt, agent}).
+- **spawn_agent** - Run a single focused sub-agent task. Params: `prompt`, optional `agent`, `description`.
+
+### Interaction
+- **ask_user** - Ask a clarification question with optional choices. Params: `question`, optional `options` (list), `allow_free_text`.
 
 ## MCP Tools
 

@@ -5,6 +5,15 @@ All notable changes to Ray are documented here.
 ## [Unreleased] — 2026-04-13
 
 ### Added (latest)
+- **Internal hooks system**: In-process Python event listener registration via `hook_engine.on(event, callback)` / `.off()`. Async callables are invoked when matching events fire. Supports glob pattern matching (e.g. `command:*` catches `command:new`, `command:reset`). 12 new colon-separated event types: `gateway:startup`, `command`, `command:new`, `command:reset`, `command:stop`, `session:compact:before`, `session:compact:after`, `session:patch`, `agent:bootstrap`, `message:received`, `message:preprocessed`, `message:sent`. Emitted at key lifecycle points alongside existing webhook events. `GET /api/hooks/events` returns both webhook and internal events; `GET /api/hooks/listeners` shows registered listener counts.
+- **`web_fetch` tool**: Fetch content from any URL with automatic HTML-to-text conversion. Supports raw mode for JSON/plain-text responses. 512KB cap, 30s timeout, follows redirects. Params: `url` (required), `raw` (optional).
+- **`grep_files` tool**: Regex search across workspace files. Returns matching lines with file paths and line numbers. Supports glob file filtering, context lines, and case-insensitive mode. Params: `pattern` (required), `glob`, `max_results`, `context_lines`, `case_insensitive`.
+- **`glob_files` tool**: Find workspace files by glob pattern. Returns paths with size and modification timestamps. Params: `pattern` (required), `max_results`.
+- **`ask_user` tool**: Present structured questions to the user with optional suggested choices. Use when the agent needs clarification before proceeding. Params: `question` (required), `options` (optional list), `allow_free_text`.
+- **`spawn_agent` tool**: Single-task sub-agent delegation. Cleaner API than `spawn_tasks` for one-off focused work. Params: `prompt` (required), `agent`, `description`.
+- **Tool count 15 → 20**: Five new tools added to the general agent. Orchestrator agent also updated with new tools.
+
+### Added (previous)
 - **Concurrency hardening — AsyncOpenAI native streaming**: `OpenAIResponsesProvider.stream_chat` rewritten to use `AsyncOpenAI` with `async for event in stream:`. Eliminates the sync SDK thread bridge (`queue.Queue` + `run_in_executor` + `asyncio.to_thread`) that consumed 2 thread pool threads per concurrent request. Under load (3+ concurrent requests in Docker with ~6 default pool threads) the pool exhausted and the Bun proxy returned plain-text "Internal Server Error" errors during multi-tool-call chains. Now: 0 thread pool threads for the Responses API path.
 - **LLM concurrency semaphore**: `asyncio.Semaphore(10)` in `chat.py` caps simultaneous `stream_chat()` calls. Provides backpressure so the 11th concurrent request queues in the event loop rather than spawning more threads.
 - **Client disconnect detection per tool-call round**: `await request.is_disconnected()` is checked before each tool-call round (round > 0). If the browser tab closes mid-chain the agent loop aborts cleanly instead of executing all remaining rounds against a dead connection.

@@ -219,12 +219,14 @@ Backend modules: `api/commands/exec_guardrails.py` (validation), `api/commands/e
 Event-driven hook system for lifecycle events, webhooks, and pre/post command interception.
 
 - **Webhooks**: HTTP callbacks to external URLs when events fire. Configured in `config/hooks.yaml` (static) or `workspace/hooks/` (runtime, managed via UI or `/hook` command).
+- **Internal hooks**: In-process Python event listeners registered via `hook_engine.on(event, callback)`. Support glob patterns (e.g. `command:*`). Dispatched alongside webhooks from `emit()`.
 - **Pre/post hooks**: Run before/after slash commands or tool calls. Pre-hooks can cancel operations.
-- **Events**: `message_received`, `command_executed`, `tool_executing`, `tool_executed`, `response_persisted`, `exec_approved`, `exec_denied`, `task_started`, `task_completed`, `task_failed`, `session_created`, `session_deleted`.
+- **Webhook events**: `message_received`, `command_executed`, `tool_executing`, `tool_executed`, `response_persisted`, `exec_approved`, `exec_denied`, `task_started`, `task_completed`, `task_failed`, `session_created`, `session_deleted`.
+- **Internal events**: `gateway:startup`, `command`, `command:new`, `command:reset`, `command:stop`, `session:compact:before`, `session:compact:after`, `session:patch`, `agent:bootstrap`, `message:received`, `message:preprocessed`, `message:sent`.
 - **UI**: "Webhooks" panel in sidebar for managing runtime webhooks, viewing activity log, and testing.
-- **API**: `GET/POST/DELETE /api/hooks/webhooks`, `POST /api/hooks/webhooks/{name}/test`, `GET /api/hooks/events`, `GET /api/hooks/log`.
+- **API**: `GET/POST/DELETE /api/hooks/webhooks`, `POST /api/hooks/webhooks/{name}/test`, `GET /api/hooks/events`, `GET /api/hooks/log`, `GET /api/hooks/listeners`.
 
-Backend: `api/hooks/engine.py` (core dispatcher), `api/hooks/models.py`, `api/hooks/handlers.py`, `api/routers/hooks.py`, `api/commands/hooks_cmd.py`.
+Backend: `api/hooks/engine.py` (core dispatcher + internal listener registry), `api/hooks/models.py`, `api/hooks/handlers.py`, `api/routers/hooks.py`, `api/commands/hooks_cmd.py`.
 
 ## Adding a New Tool
 
@@ -232,6 +234,7 @@ Backend: `api/hooks/engine.py` (core dispatcher), `api/hooks/models.py`, `api/ho
 2. Register in `api/tools/registry.py`
 3. Add definition to `config/tools.yaml`
 4. Add tool name to relevant agents in `config/agents.yaml`
+5. Add tool name to `_RAY_TOOL_NAMES` in `api/tools/builtin/exec_tool.py` (prevents exec_command misrouting)
 
 ## Release
 
