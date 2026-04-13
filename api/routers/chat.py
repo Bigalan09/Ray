@@ -32,6 +32,7 @@ log = structlog.get_logger("ray.chat")
 router = APIRouter()
 
 _KEEPALIVE = {"data": json.dumps({"ray_metadata": {"type": "keepalive"}})}
+_llm_semaphore = asyncio.Semaphore(10)  # max 10 concurrent LLM inference calls
 
 MAX_RETRIES = settings.max_retries
 BASE_DELAY_MS = settings.base_delay_ms
@@ -397,7 +398,7 @@ async def chat(request: Request):
 
         return await _chat_direct(
             deployment, agent_name, agent_ctx, effective_temp,
-            messages, conversation_id,
+            messages, conversation_id, request,
         )
     except Exception:
         request_id = get_request_id() or None
@@ -422,7 +423,7 @@ async def chat(request: Request):
 
 async def _chat_direct(
     model: str, agent_name: str, agent_ctx: dict, temperature: float,
-    messages: list[dict], conversation_id: str | None,
+    messages: list[dict], conversation_id: str | None, request: Request,
 ):
     """Handle chat via direct streaming."""
     from hooks.engine import hook_engine
@@ -458,6 +459,12 @@ async def _chat_direct(
         request_id = get_request_id() or None
 
         for _round in range(MAX_TOOL_ROUNDS):
+            if _round > 0:
+                if await request.is_disconnected():
+                    log.info("Client disconnected mid-tool-chain, aborting", round=_round)
+                    return
+                yield _KEEPALIVE
+
             tool_calls: list[dict] = []
             finish_reason = ""
             round_usage: dict = {}
@@ -473,12 +480,13 @@ async def _chat_direct(
                 messages=conversation,
             )
 
-            async for raw_line in provider.stream_chat(
+            async with _llm_semaphore:
+              async for raw_line in provider.stream_chat(
                 messages=conversation,
                 temperature=temperature,
                 tools=enabled_tools if enabled_tools else None,
                 model=resolved_model,
-            ):
+              ):
                 if not raw_line.startswith("data: "):
                     continue
 
@@ -796,8 +804,9 @@ async def _chat_direct(
                 )
                 await asyncio.sleep(wait)
             try:
-                async for event in _do_stream():
-                    yield event
+                async with asyncio.timeout(300):
+                    async for event in _do_stream():
+                        yield event
                 if stream_failed:
                     duration = _time.perf_counter() - t_start
                     try:

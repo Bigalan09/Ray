@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse, Response
 from config import settings
 from routers import chat, models, prompts, tools, conversations, memory, agents, identity, tasks as tasks_router, ws, documents, commands, telemetry as telemetry_router
 from tools.mcp.manager import start_mcp_servers, stop_mcp_servers, get_server_status
-from tasks.scheduler import start_scheduler, stop_scheduler, get_scheduled_jobs
+from tasks.scheduler import get_scheduled_jobs
 from security.auth import generate_api_key, _load_api_key, verify_api_key
 from security.rate_limit import check_rate_limit
 from security.audit import get_audit_log, log_request
@@ -25,6 +25,11 @@ configure_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(ThreadPoolExecutor(max_workers=20, thread_name_prefix="ray-io"))
+
     from bootstrap import ensure_workspace_seeded
     ensure_workspace_seeded()
     try:
@@ -32,19 +37,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"MCP startup warning: {e}")
     try:
-        start_scheduler()
-    except Exception as e:
-        print(f"Scheduler startup warning: {e}")
-    try:
         from hooks.engine import hook_engine
         hook_engine.load_config()
     except Exception as e:
         print(f"Hooks startup warning: {e}")
     yield
-    stop_scheduler()
     await stop_mcp_servers()
-    from llm.responses import shutdown_client
+    from llm.responses import shutdown_client, shutdown_async_client
     await shutdown_client()
+    await shutdown_async_client()
 
 
 app = FastAPI(title="Ray API", version="0.2.0", lifespan=lifespan)
