@@ -152,7 +152,7 @@ Add hooks system: webhooks, lifecycle events, pre/post hooks, UI panel
 Adds a general-purpose hook system with three capabilities:
 [body explaining the change]
 
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 ```
 
 Always include the co-author line. Use `cat <<'EOF'` heredoc for multi-line messages.

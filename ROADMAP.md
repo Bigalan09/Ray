@@ -10,7 +10,7 @@ Browser (localhost:3000)
 ray-ui  (Bun static + /api/* proxy)
     |
 ray-api  (FastAPI, port 8000)
-    |-- OpenAI Responses API  (primary; gpt-5-nano default)
+    |-- OpenAI Responses API  (primary; gpt-5-mini default)
     |-- Optional: Azure OpenAI, Ollama providers
     |-- Agent loop  (up to 10 rounds; built-in + MCP tools as function definitions)
     |-- Slash commands  (/help /tool /task /skill /exec /file ...)
@@ -34,6 +34,10 @@ ray-chromadb (vector memory)
 | ray-worker | ./api | internal | Background tasks, cron scheduler |
 | ray-redis | redis:7-alpine | internal | Task queue, rate limiting, pub/sub |
 | ray-chromadb | chromadb/chroma | internal | Vector memory |
+| ray-prometheus | prom/prometheus | internal | Metrics scraping |
+| ray-loki | grafana/loki | internal | Log aggregation |
+| ray-promtail | grafana/promtail | internal | Docker log shipper |
+| ray-grafana | grafana/grafana | 127.0.0.1:3001 | Dashboards (metrics + logs) |
 
 ---
 
@@ -107,16 +111,10 @@ ray-chromadb (vector memory)
 - [x] E2E: image upload UI + multimodal LLM path (`image-upload.spec.ts`)
 - [x] E2E: RAG pipeline upload/search/delete (`rag-pipeline.spec.ts`)
 - [x] E2E: hook rules CRUD (`hook-rules.spec.ts`)
-
----
-
-## Outstanding
-
-Issues reference [ISSUES.md](ISSUES.md) numbering.
-
-### P2 — Missing UI for Working Backend Features
-
-- [ ] **#10 API key management UI**: Auth is still managed via API routes only. `ui/src/components/ApiKeyPanel.tsx` exists but is not mounted, and the UI spec remains skipped.
+- [x] **API key management UI** (`ApiKeyPanel.tsx`): Sidebar panel for generating, rotating, and revoking the API key. Accessible via "API Key" nav button in the Configure section. Backed by `POST/DELETE /api/auth/key` and `GET /api/auth/status`.
+- [x] **Exec approve output rendered in chat**: `approveExec()` now reads the `POST /api/exec/approve` response and dispatches `COMMAND_RESULT` so command output appears in the message list after clicking Allow.
+- [x] **E2E contract fixes**: Memory search tests changed from `GET /api/memory/search?q=` to `POST /api/memory/search` (matching the router). Auth status field corrected to `auth_enabled`. `GET /exec/pending` endpoint added.
+- [x] **GHCR image tag lowercase**: `lower(github.repository_owner)` applied in release workflow to prevent tag rejection for mixed-case owner names.
 
 ---
 
