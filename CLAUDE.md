@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is Ray
 
-Ray is a local AI personal work assistant. Browser-based chat UI (React/Bun) backed by a Python API (FastAPI) with Azure OpenAI and OpenAI Responses API as LLM backends, optional Ollama provider, slash commands, background tasks, cron scheduling, persistent memory, MCP tool integration, and identity files (SOUL.md/USER.md). Runs via Docker Compose on localhost. Also runs as an Electron desktop app loading the same UI.
+Ray is a local AI personal assistant. Browser-based chat UI (React/Bun) backed by a Python API (FastAPI) with Azure OpenAI and OpenAI Responses API as LLM backends, optional Ollama provider, slash commands, background tasks, cron scheduling, persistent memory, MCP tool integration, and identity files (SOUL.md/USER.md). Runs via Docker Compose on localhost. Also runs as an Electron desktop app loading the same UI.
 
 ## Architecture
 
@@ -21,12 +21,14 @@ Browser :3000 --> ray-ui (Bun static + /api/* proxy) --> ray-api :8000 (FastAPI)
                                                           |-> Security middleware (auth, rate limit, audit)
                                                           |-> YAML config (/config/)
 
-                                                     ray-worker (background tasks + cron)
-                                                     ray-redis (task queue + rate limiting)
+                                                     ray-worker   (background tasks + cron)
+                                                     ray-redis    (task queue + rate limiting)
                                                      ray-chromadb (vector memory)
+                                                     ray-prometheus / ray-loki / ray-promtail / ray-grafana
+                                                       (observability stack, bundled in docker-compose.yml)
 ```
 
-Five Docker services: `ray-ui`, `ray-api`, `ray-worker`, `ray-redis`, `ray-chromadb`. Optional `ray-ollama`.
+Optional: `ray-ollama` (uncomment in `docker-compose.yml`).
 
 ## Chat Routing
 
@@ -39,9 +41,17 @@ The chat endpoint (`POST /api/chat`) follows this priority:
 The React UI uses a `useChat` hook (`ui/src/hooks/useChat.ts`) that encapsulates all chat state and streaming logic:
 
 - **SSE parser** (`hooks/sse-parser.ts`): Buffered line parser handling partial TCP chunks.
-- **Event types** (`hooks/sse-events.ts`): Typed discriminated union for all SSE event shapes with a `classifyEvent` classifier.
+- **Event types** (`hooks/sse-events.ts`): Typed discriminated union for all SSE event shapes. `classifyEvent()` maps raw JSON → typed `SSEEvent`. Recognised kinds: `content`, `tool_status`, `citations`, `exec_confirm`, `command_result`, `error`, `timing`.
 - **Chat reducer** (`hooks/chat-reducer.ts`): State machine with phases: `idle`, `sending`, `streaming`, `committing`, `error`. Conversation selection is blocked during non-idle phases to prevent race conditions.
 - **Platform context** (`context/PlatformContext.tsx`): Detects Electron vs browser via `navigator.userAgent`. Components use `usePlatform()` to adapt (e.g. frameless title bar in desktop mode).
+
+### Exec approval flow
+
+When `/exec` runs: the server sends an `exec_confirm` SSE event → `EXEC_CONFIRM` dispatched → `execPending` set in state → `InputForm` renders the Approve/Deny card (replacing the textarea). The SSE stream closes normally after the `exec_confirm` event. When the user clicks Allow: `approveExec()` clears `execPending` (`EXEC_RESOLVE`), calls `POST /api/exec/approve`, then dispatches `COMMAND_RESULT` with the response body's `content` field so the output appears as an assistant message. Deny follows the same pattern via `POST /api/exec/deny`.
+
+### Sidebar panels
+
+All slide-out panels follow the same pattern: `visible` + `onClose` props, mounted unconditionally in `App.tsx`, toggled via `useState`. Panels: TasksPanel, SchedulePanel, MCPPanel, HooksPanel, MemoryPanel, WorkspacePanel, SkillsPanel, SettingsPanel, ApiKeyPanel. Nav buttons live in `ConversationList.tsx` under "Tools" and "Configure" sections — add `onShow<Panel>` to both `ConversationListProps` and the `App.tsx` call site.
 
 ## Build and Run
 
@@ -63,29 +73,47 @@ cd ui && bun install
 cd tests && npm install
 ```
 
+Docker images use Python 3.12 (`FROM python:3.12-slim`). Local dev can use 3.13; Python 3.14 is too new for the pinned ChromaDB stack.
+
 ## Testing
 
 ```bash
 # All API tests (includes unit, integration, and optional live OpenAI tests)
 cd api && .venv/bin/python -m pytest tests/ -v
 
-# Repo-level Playwright shortcuts
-npm run test:e2e
-npm run test:e2e:api
-
 # Single test
 cd api && .venv/bin/python -m pytest tests/test_tools.py::test_calculator_tool_works -v
 
-# E2E (Playwright)
+# E2E (Playwright) against running dev stack
 cd tests && npx playwright test
+
+# E2E against live Docker stack (recommended for CI)
+cd tests && npx playwright test --config=playwright.docker.config.ts
+
+# API-only (no browser)
+cd tests && npx playwright test --config=playwright.api.config.ts
+
+# Repo-level shortcuts
+npm run test:e2e
+npm run test:e2e:api
 
 # Manual live bootstrap flow only
 cd tests && RAY_RUN_BOOTSTRAP_INTERACTIVE=1 npx playwright test e2e/bootstrap-interactive.spec.ts --headed
 ```
 
-Live integration tests in `test_integration.py` hit the real OpenAI Responses API. They auto-skip if `OPENAI_API_KEY` is not set.
-`bootstrap-interactive.spec.ts` is also opt-in and stays out of the default Playwright run unless `RAY_RUN_BOOTSTRAP_INTERACTIVE=1` is set.
-Playwright prefers `api/.venv/bin/python` when it is healthy, then falls back to `python3.13`, `python3.12`, and finally `python3`. Python 3.14 is currently too new for the pinned ChromaDB stack. Override with `PYTHON_BIN` if needed.
+Live integration tests in `test_integration.py` hit the real OpenAI Responses API and auto-skip if `OPENAI_API_KEY` is not set. `bootstrap-interactive.spec.ts` is opt-in unless `RAY_RUN_BOOTSTRAP_INTERACTIVE=1` is set.
+
+Playwright resolves Python by preferring `api/.venv/bin/python`, then `python3.13`, `python3.12`, `python3`. Override with `PYTHON_BIN`.
+
+## Deployment
+
+The production stack lives at `~/deployments/ray/` and builds directly from this repo's source directories. To deploy:
+
+```bash
+cd ~/deployments/ray && docker compose up --build -d ray-ui ray-api ray-worker
+```
+
+The deployment compose mounts `~/deployments/ray/config/` and `~/deployments/ray/workspace/` as volumes (separate from `./config/` and `./workspace/` in the dev repo). Changes to `config/` in this repo are **not** automatically reflected in the deployment.
 
 ## Configuration
 
@@ -97,10 +125,10 @@ YAML in `config/`:
 - `schedules.yaml` -- Cron-scheduled agent tasks
 - `instructions.yaml` -- Custom global system instructions (injected into every LLM call)
 - `SOUL.md` -- Ray's personality and principles
-- `USER.md` -- User profile and preferences (formerly ME.md)
+- `USER.md` -- User profile and preferences
 - `BOOTSTRAP.md` -- First-run onboarding template
 
-The default model is set in `config/models.yaml` via `default_model`. The current repo default is `gpt-5-mini` (Azure OpenAI). Model selection is config-only; there is no UI dropdown.
+The default model is set in `config/models.yaml` via `default_model`. The current repo default is `gpt-5-mini` (Azure OpenAI). Both `gpt-5-mini` (Azure) and `gpt-5-nano` (OpenAI direct) are defined. The model switcher dropdown in the header is shown when multiple models are configured; it is hidden for single-model setups.
 
 Workspace/runtime:
 - `workspace/mcp_servers.json` -- MCP server configuration (standard `mcpServers` dict format)
@@ -113,6 +141,10 @@ Workspace/runtime:
 ## Identity System
 
 `workspace/SOUL.md` defines Ray's personality and principles. `workspace/USER.md` describes the user. `workspace/MEMORY.md` stores curated notes. These workspace files are prepended to the system prompt automatically.
+
+## Memory API
+
+Memory search uses `POST /api/memory/search` with a JSON body `{ "query": "...", "limit": 5 }`. It returns `{ "results": [...], "query": "..." }`. There is no GET variant. `GET /api/memory` lists recent memories. `DELETE /api/memory/{id}` deletes one entry.
 
 ## Slash Commands
 
@@ -150,7 +182,7 @@ Tasks broadcast status updates via WebSocket (`/ws`). The UI connects to this We
 
 ## Security
 
-- **API key auth**: `POST /api/auth/key` creates a key stored in `workspace/api_key`. Pass as `X-API-Key` header. Auth is disabled until a key is generated.
+- **API key auth**: `POST /api/auth/key` creates a key stored in `workspace/api_key`. Pass as `X-API-Key` header. Auth is disabled until a key is generated. `GET /api/auth/status` returns `{ "auth_enabled": bool }` (field is `auth_enabled`, not `enabled`).
 - **Rate limiting**: Configurable with `RATE_LIMIT_ENABLED`, `RATE_LIMIT_RPM`, and `RATE_LIMIT_BURST`. Defaults are `1200` req/min and `200` burst. The limiter keys by API key first, then forwarded IP headers, then socket IP. Uses Redis when available, in-memory fallback.
 - **Audit logging**: Mutating requests logged to `workspace/audit.db` with sanitised bodies.
 - **Middleware**: All three enforced via HTTP middleware in `main.py`. Public paths (`/health`, `/api/auth/*`) bypass auth.
@@ -179,7 +211,7 @@ exec:
       timeout: 15
 ```
 
-Backend modules: `api/commands/exec_guardrails.py` (validation), `api/commands/exec_runner.py` (subprocess), `api/commands/exec_pending.py` (pending store), `api/commands/exec_cmd.py` (slash command), `api/tools/builtin/exec_tool.py` (agent tool), `api/routers/exec_router.py` (approve/deny endpoints).
+Backend modules: `api/commands/exec_guardrails.py` (validation), `api/commands/exec_runner.py` (subprocess), `api/commands/exec_pending.py` (pending store + `list_pending()`), `api/commands/exec_cmd.py` (slash command), `api/tools/builtin/exec_tool.py` (agent tool), `api/routers/exec_router.py` (approve/deny/list-pending endpoints).
 
 ## Hooks
 
@@ -199,6 +231,10 @@ Backend: `api/hooks/engine.py` (core dispatcher), `api/hooks/models.py`, `api/ho
 2. Register in `api/tools/registry.py`
 3. Add definition to `config/tools.yaml`
 4. Add tool name to relevant agents in `config/agents.yaml`
+
+## Release
+
+Docker images are published to GHCR on every version tag (`v*`) via `.github/workflows/release.yml`. The workflow uses `lower(github.repository_owner)` to normalise the owner to lowercase before constructing the image tag (GHCR requires all-lowercase). Images: `ghcr.io/bigalan09/ray-api` and `ghcr.io/bigalan09/ray-ui`.
 
 ## Key Directories
 
