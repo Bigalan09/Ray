@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import queue
 from abc import ABC, abstractmethod
 from typing import AsyncIterator
 
@@ -67,22 +66,29 @@ class OpenAIResponsesProvider(LLMProvider):
             tools=tools,
             stream=True,
         )
-        event_queue: queue.Queue = queue.Queue()
+        # Use asyncio.Queue + call_soon_threadsafe so the reader never occupies
+        # a thread pool thread.  The old pattern used asyncio.to_thread for the
+        # consumer side, which meant each active request held TWO thread pool
+        # threads (one for _stream, one blocking on queue.Queue.get).  Under
+        # concurrent load that exhausted the pool, stalling subsequent tool-call
+        # rounds and triggering proxy-level 500s.
+        loop = asyncio.get_running_loop()
+        async_queue: asyncio.Queue = asyncio.Queue()
 
-        def _stream(q: queue.Queue) -> None:
+        def _stream() -> None:
             try:
                 stream = client.responses.create(**request_kwargs)
                 for event in stream:
-                    q.put(event)
+                    loop.call_soon_threadsafe(async_queue.put_nowait, event)
             except Exception as exc:
-                q.put(exc)
+                loop.call_soon_threadsafe(async_queue.put_nowait, exc)
             finally:
-                q.put(None)
+                loop.call_soon_threadsafe(async_queue.put_nowait, None)
 
-        asyncio.get_running_loop().run_in_executor(None, _stream, event_queue)
+        loop.run_in_executor(None, _stream)
 
         while True:
-            event = await asyncio.to_thread(event_queue.get)
+            event = await async_queue.get()
             if event is None:
                 break
 

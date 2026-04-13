@@ -268,41 +268,56 @@ async def chat(request: Request):
                 ),
             }
 
-    models_config = load_yaml("models.yaml")
-    default_model = get_default_model(models_config)
-    deployment = model or default_model
+    try:
+        models_config = load_yaml("models.yaml")
+        default_model = get_default_model(models_config)
+        deployment = model or default_model
 
-    # Proactive memory + document injection: query ChromaDB before building the
-    # system prompt so relevant facts and uploaded document chunks are in context.
-    from memory.store import memory_search as _mem_search
-    from rag.store import rag_search as _rag_search
-    injected_memories: list[dict] = []
-    injected_documents: list[dict] = []
-    if last_user_msg:
-        try:
-            mem_result = await _mem_search(last_user_msg, limit=4)
-            injected_memories = mem_result.get("results", [])
-        except Exception:
-            pass
-        try:
-            doc_result = await _rag_search(last_user_msg, limit=5)
-            injected_documents = doc_result.get("results", [])
-        except Exception:
-            pass
+        # Proactive memory + document injection: query ChromaDB before building the
+        # system prompt so relevant facts and uploaded document chunks are in context.
+        from memory.store import memory_search as _mem_search
+        from rag.store import rag_search as _rag_search
+        injected_memories: list[dict] = []
+        injected_documents: list[dict] = []
+        if last_user_msg:
+            try:
+                mem_result = await _mem_search(last_user_msg, limit=4)
+                injected_memories = mem_result.get("results", [])
+            except Exception:
+                pass
+            try:
+                doc_result = await _rag_search(last_user_msg, limit=5)
+                injected_documents = doc_result.get("results", [])
+            except Exception:
+                pass
 
-    agent_name = route_message(last_user_msg, "general", explicit_agent=explicit_agent)
-    agent_ctx = build_agent_context(
-        agent_name,
-        injected_memories=injected_memories,
-        injected_documents=injected_documents,
-    )
-    temperature = payload.get("temperature")
-    effective_temp = temperature if temperature is not None else agent_ctx["temperature"]
+        agent_name = route_message(last_user_msg, "general", explicit_agent=explicit_agent)
+        agent_ctx = build_agent_context(
+            agent_name,
+            injected_memories=injected_memories,
+            injected_documents=injected_documents,
+        )
+        temperature = payload.get("temperature")
+        effective_temp = temperature if temperature is not None else agent_ctx["temperature"]
 
-    return await _chat_direct(
-        deployment, agent_name, agent_ctx, effective_temp,
-        messages, conversation_id,
-    )
+        return await _chat_direct(
+            deployment, agent_name, agent_ctx, effective_temp,
+            messages, conversation_id,
+        )
+    except Exception as exc:
+        log.error(
+            "Chat handler setup failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            model=model,
+            conversation_id=conversation_id,
+            exc_info=True,
+        )
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=500,
+            content={"type": "error", "message": f"{type(exc).__name__}: {exc}", "retryable": False},
+        )
 
 
 async def _chat_direct(
