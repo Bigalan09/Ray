@@ -15,7 +15,7 @@ import { SkillsPanel } from "@/components/SkillsPanel";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { ToastContainer, type ToastMessage } from "@/components/Toast";
 import { track } from "@/observability/telemetry";
-import "./index.css";
+import "./index.generated.css";
 
 interface Conversation {
   id: string;

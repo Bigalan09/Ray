@@ -41,14 +41,15 @@ The chat endpoint (`POST /api/chat`) follows this priority:
 docker compose up --build
 
 # Development
-cd api && uvicorn main:app --reload --port 8000
+cd api && python3.13 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
+cd api && .venv/bin/python -m uvicorn main:app --reload --port 8000
 cd ui && API_URL=http://localhost:8000 bun run dev
 ```
 
 Install dependencies before local development:
 
 ```bash
-cd api && python -m pip install -r requirements.txt
+cd api && python3.13 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
 cd ui && bun install
 cd tests && npm install
 ```
@@ -57,14 +58,14 @@ cd tests && npm install
 
 ```bash
 # All API tests (includes unit, integration, and optional live OpenAI tests)
-cd api && python -m pytest tests/ -v
+cd api && .venv/bin/python -m pytest tests/ -v
 
 # Repo-level Playwright shortcuts
 npm run test:e2e
 npm run test:e2e:api
 
 # Single test
-python -m pytest tests/test_tools.py::test_calculator_tool_works -v
+cd api && .venv/bin/python -m pytest tests/test_tools.py::test_calculator_tool_works -v
 
 # E2E (Playwright)
 cd tests && npx playwright test
@@ -75,6 +76,7 @@ cd tests && RAY_RUN_BOOTSTRAP_INTERACTIVE=1 npx playwright test e2e/bootstrap-in
 
 Live integration tests in `test_integration.py` hit the real OpenAI Responses API. They auto-skip if `OPENAI_API_KEY` is not set.
 `bootstrap-interactive.spec.ts` is also opt-in and stays out of the default Playwright run unless `RAY_RUN_BOOTSTRAP_INTERACTIVE=1` is set.
+Playwright prefers `api/.venv/bin/python` when it is healthy, then falls back to `python3.13`, `python3.12`, and finally `python3`. Python 3.14 is currently too new for the pinned ChromaDB stack. Override with `PYTHON_BIN` if needed.
 
 ## Configuration
 
@@ -138,7 +140,7 @@ Tasks broadcast status updates via WebSocket (`/ws`). The UI connects to this We
 
 ## Security
 
-- **API key auth**: `POST /api/auth/generate-key` creates a key stored in `workspace/api_key`. Pass as `X-API-Key` header. Auth is disabled until a key is generated.
+- **API key auth**: `POST /api/auth/key` creates a key stored in `workspace/api_key`. Pass as `X-API-Key` header. Auth is disabled until a key is generated.
 - **Rate limiting**: Configurable with `RATE_LIMIT_ENABLED`, `RATE_LIMIT_RPM`, and `RATE_LIMIT_BURST`. Defaults are `1200` req/min and `200` burst. The limiter keys by API key first, then forwarded IP headers, then socket IP. Uses Redis when available, in-memory fallback.
 - **Audit logging**: Mutating requests logged to `workspace/audit.db` with sanitised bodies.
 - **Middleware**: All three enforced via HTTP middleware in `main.py`. Public paths (`/health`, `/api/auth/*`) bypass auth.

@@ -1,12 +1,14 @@
 import { defineConfig } from "@playwright/test";
 import { resolve } from "path";
 import { loadPreferredEnv } from "./support/env";
+import { resolvePythonBin } from "./support/python";
 
 const envVars = loadPreferredEnv(
   resolve(__dirname, ".env"),
   resolve(__dirname, "../.env"),
 );
-const pythonBin = process.env.PYTHON_BIN || "python3";
+const pythonBin = resolvePythonBin();
+const pythonCommand = JSON.stringify(pythonBin);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -17,7 +19,7 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: `cd ../api && ${pythonBin} -m uvicorn main:app --host 0.0.0.0 --port 8000`,
+    command: `cd ../api && ${pythonCommand} -m uvicorn main:app --host 0.0.0.0 --port 8000`,
     port: 8000,
     timeout: 15000,
     reuseExistingServer: true,
