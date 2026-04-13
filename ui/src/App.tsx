@@ -15,6 +15,7 @@ import { WorkspacePanel } from "@/components/WorkspacePanel";
 import { SkillsPanel } from "@/components/SkillsPanel";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { ApiKeyPanel } from "@/components/ApiKeyPanel";
+import { DevModePanel } from "@/components/DevModePanel";
 import { ToastContainer, type ToastMessage } from "@/components/Toast";
 import { track } from "@/observability/telemetry";
 import { useChat } from "@/hooks/useChat";
@@ -39,6 +40,8 @@ const App: React.FC = () => {
   const [showSkills, setShowSkills] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [showDevMode, setShowDevMode] = useState(false);
+  const [devModeAvailable, setDevModeAvailable] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [taskAlertCount, setTaskAlertCount] = useState(0);
   const [userInfo, setUserInfo] = useState<{ name: string | null; company: string | null }>({ name: null, company: null });
@@ -46,6 +49,13 @@ const App: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Check if dev mode API is available
+  useEffect(() => {
+    fetch("/api/admin/dev-mode").then((r) => {
+      if (r.ok) setDevModeAvailable(true);
+    }).catch(() => {});
+  }, []);
 
   // Toast helpers
   const addToast = useCallback((text: string, type: ToastMessage["type"] = "info") => {
@@ -252,6 +262,7 @@ const App: React.FC = () => {
           onShowSkills={() => openPanel("skills", setShowSkills)}
           onShowSettings={() => openPanel("settings", setShowSettings)}
           onShowApiKey={() => openPanel("apikey", setShowApiKey)}
+          onShowDevMode={devModeAvailable ? () => openPanel("devmode", setShowDevMode) : undefined}
           userInfo={userInfo}
         />
 
@@ -297,6 +308,7 @@ const App: React.FC = () => {
       <SkillsPanel visible={showSkills} onClose={() => setShowSkills(false)} />
       <SettingsPanel visible={showSettings} onClose={() => setShowSettings(false)} />
       <ApiKeyPanel visible={showApiKey} onClose={() => setShowApiKey(false)} />
+      <DevModePanel visible={showDevMode} onClose={() => setShowDevMode(false)} />
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
