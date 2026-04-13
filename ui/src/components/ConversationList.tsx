@@ -24,6 +24,7 @@ interface ConversationListProps {
   onShowSkills: () => void;
   onShowSettings: () => void;
   onShowApiKey?: () => void;
+  onShowDevMode?: () => void;
   taskAlertCount?: number;
   userInfo?: { name: string | null; company: string | null };
 }
@@ -101,6 +102,7 @@ export function ConversationList({
   onShowSkills,
   onShowSettings,
   onShowApiKey,
+  onShowDevMode,
   taskAlertCount = 0,
   userInfo,
 }: ConversationListProps) {
@@ -183,6 +185,14 @@ export function ConversationList({
               onClick={onShowApiKey}
               icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>}
               label="API Key"
+              collapsed={collapsed}
+            />
+          )}
+          {onShowDevMode && (
+            <NavButton
+              onClick={onShowDevMode}
+              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>}
+              label="Dev Mode"
               collapsed={collapsed}
             />
           )}

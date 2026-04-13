@@ -119,6 +119,9 @@ app.include_router(skills_router.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
 app.include_router(telemetry_router.router, prefix="/api")
 
+from routers import admin as admin_router
+app.include_router(admin_router.router, prefix="/api")
+
 
 @app.get("/health")
 async def health():
