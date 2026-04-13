@@ -331,12 +331,21 @@ export function useChat() {
   const approveExec = useCallback(async () => {
     const s = stateRef.current;
     if (!s.execPending) return;
+    const pendingId = s.execPending.pending_id;
     dispatch({ type: "EXEC_RESOLVE" });
-    await fetch("/api/exec/approve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pending_id: s.execPending.pending_id }),
-    });
+    try {
+      const resp = await fetch("/api/exec/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pending_id: pendingId }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.content) {
+          dispatch({ type: "COMMAND_RESULT", content: data.content });
+        }
+      }
+    } catch {}
   }, []);
 
   const denyExec = useCallback(async () => {

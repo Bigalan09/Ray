@@ -14,6 +14,7 @@ import { MemoryPanel } from "@/components/MemoryPanel";
 import { WorkspacePanel } from "@/components/WorkspacePanel";
 import { SkillsPanel } from "@/components/SkillsPanel";
 import { SettingsPanel } from "@/components/SettingsPanel";
+import { ApiKeyPanel } from "@/components/ApiKeyPanel";
 import { ToastContainer, type ToastMessage } from "@/components/Toast";
 import { track } from "@/observability/telemetry";
 import { useChat } from "@/hooks/useChat";
@@ -37,6 +38,7 @@ const App: React.FC = () => {
   const [showWorkspace, setShowWorkspace] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [taskAlertCount, setTaskAlertCount] = useState(0);
 
@@ -240,6 +242,7 @@ const App: React.FC = () => {
           onShowMemory={() => openPanel("memory", setShowMemory)}
           onShowSkills={() => openPanel("skills", setShowSkills)}
           onShowSettings={() => openPanel("settings", setShowSettings)}
+          onShowApiKey={() => openPanel("apikey", setShowApiKey)}
         />
 
         {isEmpty ? (
@@ -283,6 +286,7 @@ const App: React.FC = () => {
       <WorkspacePanel visible={showWorkspace} onClose={() => setShowWorkspace(false)} />
       <SkillsPanel visible={showSkills} onClose={() => setShowSkills(false)} />
       <SettingsPanel visible={showSettings} onClose={() => setShowSettings(false)} />
+      <ApiKeyPanel visible={showApiKey} onClose={() => setShowApiKey(false)} />
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
