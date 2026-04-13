@@ -92,6 +92,20 @@ chat_response_duration = Histogram(
     registry=REGISTRY,
 )
 
+chat_internal_errors_total = Counter(
+    "ray_chat_internal_errors_total",
+    "Total unexpected chat stream failures",
+    ["agent", "provider", "stage"],
+    registry=REGISTRY,
+)
+
+chat_tool_exceptions_total = Counter(
+    "ray_chat_tool_exceptions_total",
+    "Total unexpected tool-call exceptions inside chat streaming",
+    ["agent", "tool"],
+    registry=REGISTRY,
+)
+
 # --- UI layer (real-user monitoring) ---
 
 ui_events_total = Counter(

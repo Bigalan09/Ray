@@ -9,6 +9,7 @@ All notable changes to Ray are documented here.
 - **`GET /exec/pending`** endpoint: Lists pending exec commands awaiting user approval. Backed by new `list_pending()` helper in `exec_pending.py`.
 
 ### Fixed (latest)
+- **Chat tool-call internal errors**: Tool-call fragments, MCP/tool result normalisation, and pre-stream setup failures now resolve to structured sanitised SSE error events with request IDs instead of raw `Internal Server Error` bubbles. The UI also collapses duplicate trailing error bubbles during retries.
 - **Exec approval output missing from chat** (issue #43): `approveExec()` discarded the `POST /api/exec/approve` response. Now dispatches `COMMAND_RESULT` with `data.content` so command output appears as an assistant message after clicking Allow.
 - **Memory search E2E contract** (issue #44): `full-coverage.spec.ts` called `GET /api/memory/search?q=` but the router only exposes `POST /memory/search`. All three call sites corrected to `POST` with `{ query, limit }` body.
 - **Auth status field name** (issue #45): `GET /api/auth/status` returns `auth_enabled`, not `enabled`. Test assertions and skip guards corrected.

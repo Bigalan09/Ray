@@ -189,6 +189,11 @@ If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang 
 **Root cause (confirmed)**: Memory-search assertions used GET (fixed in #44). `get_current_time` response is flexible (`data.current_time || data.result`) and passes once ChromaDB is reachable. The confirmed stale assertions were the same memory-search ones covered by #44/#45.  
 **Status**: Fixed via #44 and #45 changes.
 
+### 47. Chat tool-call exceptions still leaked as generic internal errors
+**Symptom**: Narrow failures during tool-call rounds, MCP execution, or pre-stream chat setup could surface as repeated generic `Internal Server Error` bubbles with little debugging context.  
+**Root cause (confirmed)**: The chat route mixed raw exceptions, inconsistent SSE error shapes, and brittle `json.dumps(result)` calls inside the tool loop. The UI then stacked duplicate error bubbles on retries.  
+**Status**: Fixed. Chat initialisation failures and tool-call exceptions now emit sanitised structured SSE `error` events with `request_id` metadata, MCP execution is wrapped into normal tool error dicts, tool results are normalised into JSON-safe dicts before reuse, and duplicate trailing UI error bubbles are collapsed.
+
 ---
 
 ## Prioritised Fix Order
@@ -200,6 +205,7 @@ If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang 
 | 45 | Full-coverage Playwright suite drift | Medium | High | ✅ Fixed |
 | 44 | Memory search contract drift | Small | Medium | ✅ Fixed |
 | 46 | Tool/memory E2E expectations stale | Small | Medium | ✅ Fixed |
+| 47 | Generic chat tool-call internal errors | Medium | High | ✅ Fixed |
 | 1 | LLM tool call errors | — | Blocking | ✅ Fixed cc5e145 |
 | 2 | Duplicate bootstrap messages | — | Blocking | ✅ Fixed 305ccd3 |
 | 3 | Bootstrap SSE gateway timeout | — | Blocking | ✅ Fixed 0d95b1a |

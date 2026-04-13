@@ -91,6 +91,7 @@ ray-chromadb (vector memory)
 - [x] Skills panel (create/delete workspace skills from UI)
 - [x] Schedule enable/disable (`PATCH /api/schedules/{name}`, APScheduler live toggle)
 - [x] Bootstrap reframed as general assistant (not work assistant); onboarding asks about interests/life, not job/role
+- [x] Structured chat-stream error handling (sanitised SSE errors with request IDs, duplicate UI error collapse, safer tool-result normalisation)
 
 ### Security & Infrastructure
 - [x] Auth middleware (`X-API-Key`; disabled until key generated)

@@ -12,7 +12,16 @@ export type SSEEvent =
   | { kind: "citations"; citations: Citation[] }
   | { kind: "exec_confirm"; pendingId: string; command: string; description: string }
   | { kind: "command_result"; content: string; action?: string }
-  | { kind: "error"; message: string; retryable: boolean }
+  | {
+      kind: "error";
+      message: string;
+      retryable: boolean;
+      requestId?: string;
+      toolName?: string;
+      round?: number;
+      provider?: string;
+      model?: string;
+    }
   | { kind: "timing"; durationS: number };
 
 /**
@@ -65,6 +74,19 @@ export function classifyEvent(raw: any): SSEEvent | null {
       kind: "error",
       message: raw.message || "Unknown error",
       retryable: !!raw.retryable,
+      requestId: raw.request_id,
+      toolName: raw.tool_name,
+      round: raw.round,
+      provider: raw.provider,
+      model: raw.model,
+    };
+  }
+
+  if (raw.error) {
+    return {
+      kind: "error",
+      message: raw.message || raw.error || "Unknown error",
+      retryable: false,
     };
   }
 

@@ -85,6 +85,7 @@ ray-grafana     dashboards (localhost:3001 / grafana.bigalan.dev)
 | Mobile-responsive UI | ✅ sidebar drawer, 44 px touch targets, dvh layout |
 | Browser telemetry (RUM) | ✅ batched events → structlog + Prometheus |
 | Response timing display | ✅ shown in status bar |
+| Structured chat errors | ✅ sanitised SSE errors with request IDs |
 
 ---
 
