@@ -70,7 +70,9 @@ ray-chromadb (vector memory)
 - [x] Schedule panel (create/list/delete cron tasks from UI)
 - [x] Tasks panel (live status via WebSocket, cancel from UI)
 - [x] MCP server panel (list, status, tools)
+- [x] MCP server management form (add/remove/restart/enable/disable servers from UI)
 - [x] Webhooks panel (manage, test, activity log)
+- [x] Hook rules panel (manage pre/post command rules from UI)
 - [x] System prompt viewer (`{ }` button in status bar)
 - [x] Exec approval card (pauses agent loop; Approve/Deny before command runs)
 - [x] Message copy/resend buttons
@@ -81,6 +83,8 @@ ray-chromadb (vector memory)
 - [x] Memory panel (browse, search, delete entries in sidebar)
 - [x] Proactive memory injection per turn (`memory_search` before building system prompt)
 - [x] Workspace file editors (Soul/User/Identity tabs in sidebar panel)
+- [x] Settings panel (writable logging overrides; read-only model/rate-limit/exec config)
+- [x] Skills panel (create/delete workspace skills from UI)
 - [x] Schedule enable/disable (`PATCH /api/schedules/{name}`, APScheduler live toggle)
 - [x] Bootstrap reframed as general assistant (not work assistant); onboarding asks about interests/life, not job/role
 
@@ -97,10 +101,12 @@ ray-chromadb (vector memory)
 - [x] API unit + integration tests (148+ tests; live OpenAI auto-skipped without key)
 - [x] Full E2E Playwright suite (`full-coverage.spec.ts`; 100+ cases)
 - [x] Docker stack E2E config (`playwright.docker.config.ts`)
+- [x] E2E: proactive memory recall (`full-coverage.spec.ts`)
 - [x] E2E: exec Approve button UI full flow (`exec-approve-ui.spec.ts`)
 - [x] E2E: schedule disable/re-enable lifecycle (`schedule-disable.spec.ts`)
 - [x] E2E: image upload UI + multimodal LLM path (`image-upload.spec.ts`)
 - [x] E2E: RAG pipeline upload/search/delete (`rag-pipeline.spec.ts`)
+- [x] E2E: hook rules CRUD (`hook-rules.spec.ts`)
 
 ---
 
@@ -110,19 +116,7 @@ Issues reference [ISSUES.md](ISSUES.md) numbering.
 
 ### P2 — Missing UI for Working Backend Features
 
-- [ ] **#10 API key management UI**: No UI to generate, reveal, or rotate the key. Must call `POST /api/auth/generate-key` manually.
-- [ ] **#11 MCP server form**: Panel shows status but has no form to add/remove servers.
-- [ ] **#12 Settings panel**: No UI for rate limits, exec allow-list, model defaults, or other config.
-- [x] **#13 `/agent` slash command**: Registered in `api/commands/builtin.py`. `/agent list` shows agents; `/agent <name>` routes message through named agent.
-- [ ] **#14 Skill builder UI**: Skills work via `/skill` but can only be created by editing `config/skills.yaml`.
-
-### P3 — Test Gaps
-
-- [ ] **#16 E2E: proactive memory recall**: Store a fact, start a new conversation, ask a related question, verify it appears without explicit `/tool` call.
-
-### P4 — Code Quality
-
-- [ ] **#33 Pre/post hook UI + tests**: The `pre_command` / `post_command` rule type (can cancel operations) is untested and has no management UI.
+- [ ] **#10 API key management UI**: Auth is still managed via API routes only. `ui/src/components/ApiKeyPanel.tsx` exists but is not mounted, and the UI spec remains skipped.
 
 ---
 

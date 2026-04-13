@@ -2,7 +2,7 @@
 
 All notable changes to Ray are documented here.
 
-## [Unreleased] — 2026-04-12
+## [Unreleased] — 2026-04-13
 
 ### Added
 - **Workspace file editors** (`WorkspacePanel.tsx`): Sidebar panel with three tabs — Soul, User, Identity — for editing `SOUL.md`, `USER.md`, and `IDENTITY.md` directly in the UI. Lazy-loads each file on first tab visit. Backed by existing `GET/PUT /api/identity/{soul,me,identity}` endpoints.
@@ -38,6 +38,9 @@ All notable changes to Ray are documented here.
 - **E2E: mobile regression suite** (`tests/e2e/mobile.spec.ts`): 12 tests covering all mobile issues #34–#41 including sidebar drawer behaviour, backdrop, touch targets, panel overflow, dvh class, StatusBar width, code block overflow, and attachment badge.
 
 ### Changed
+- **UI Tailwind pipeline**: Replaced the Bun preload/plugin path with an explicit Tailwind CLI build/watch step that works on Bun 1.2.21. `bun run dev` now generates `index.generated.css` before starting the dev server, and `bun run build` compiles CSS before bundling.
+- **Local Python tooling**: Playwright now resolves a working supported Python interpreter by preferring `api/.venv/bin/python`, then `python3.13`/`python3.12`, instead of assuming a healthy local venv or accepting Python 3.14.
+- **Docs synchronised**: README, CLAUDE, ROADMAP, and ISSUES now match the current auth endpoints, implemented UI panels, and completed E2E coverage.
 - **Central model capabilities registry**: `_MODEL_CAPS_BLACKLIST` dict in `api/llm/responses.py` replaces two duplicated `gpt-5-nano` hardcodes. Adding a new restricted model now requires one entry.
 - **`auto_title()` 10s timeout**: `_llm_title()` wraps the LLM call with `asyncio.wait_for(timeout=10.0)`. Slow/unavailable API calls are cancelled silently; title falls back to "New Chat".
 - **Ray reframed as general assistant**: Bootstrap onboarding (`workspace-template/BOOTSTRAP.md`) now asks about name, interests, and what the user cares about — not job/role. `SOUL.md` updated to remove work-specific guidance. Agent description and system prompt updated to drop "work assistant" framing.
@@ -46,6 +49,8 @@ All notable changes to Ray are documented here.
 - **README**: Completely rewritten — one-liner install, feature status table, updated architecture, GHCR release section, Docker testing commands.
 
 ### Fixed
+- **UI build break on Bun 1.2.21**: Removed the incompatible `bun-plugin-tailwind` dependency on `build.onBeforeParse`, which is not available in the installed Bun version. CSS is now compiled via `@tailwindcss/cli` before Bun serves or bundles the app.
+- **Broken local `.venv` fallback**: Playwright startup no longer dies just because `api/.venv` exists but cannot import the Python standard library.
 - **LLM tool calls returning "internal error"**: `web_search_preview` was injected into every Responses API request unconditionally. `gpt-5-nano` returns HTTP 400 for this tool. Fixed by `_supports_web_search_preview(model)` in `api/llm/responses.py` — injection is now gated to models that support it.
 - **`_KEEPALIVE` dict rebuilt on every bootstrap call**: Was defined inside `event_generator()` scope. Moved to module level.
 - **`asyncio.wait` list vs set**: `asyncio.wait([task], ...)` was passing a list; `asyncio.wait` requires a set. Fixed to `asyncio.wait({task}, ...)`.

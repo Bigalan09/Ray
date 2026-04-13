@@ -4,12 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --hot src/index.tsx",
+    "dev": "bun run dev.ts",
     "start": "NODE_ENV=production bun src/index.tsx",
     "build": "bun run build.ts"
   },
   "dependencies": {
-    "bun-plugin-tailwind": "^0.0.15",
     "react": "^19",
     "react-dom": "^19",
     "react-markdown": "^10.1.0",
@@ -18,6 +17,7 @@
     "tailwindcss": "^4.1.11"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.1.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/bun": "latest"

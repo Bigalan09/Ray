@@ -1,6 +1,6 @@
 # Ray — Known Issues & Feature Gaps
 
-Last updated: 2026-04-11. Generated from full codebase audit + E2E gap review.
+Last updated: 2026-04-13. Generated from full codebase audit + E2E gap review.
 
 ---
 
@@ -38,9 +38,7 @@ Last updated: 2026-04-11. Generated from full codebase audit + E2E gap review.
 **Status**: Fixed. `web_search` already returned `{results: [{url, title, snippet}]}`. Added `ray_citations` SSE emission in `_do_stream()` after each `web_search` tool call — same format as `web_search_preview` so citation cards render for gpt-5-nano too.
 
 ### 7. PDF / file upload has no RAG ingestion pipeline
-**Symptom**: The upload button accepts files. The `/api/documents` endpoint and chunking utilities exist. But uploaded files are never chunked, embedded, or stored in ChromaDB — so they can never be recalled.  
-**Status**: `test_rag.py` tests chunking in isolation. `FileUpload` POSTs to `/api/documents` but the backend processor is a stub.  
-**Fix needed**: `api/routers/documents.py` — accept upload → chunk → embed via ChromaDB → store. Inject relevant chunks into system prompt on each turn.
+**Status**: Fixed. `api/routers/documents.py` now ingests uploaded files, extracts text, stores chunks in ChromaDB, and exposes list/search/delete endpoints. Covered by `tests/e2e/rag-pipeline.spec.ts`.
 
 ### 8. Model switching has no UI
 **Status**: Fixed. `Header.tsx` now shows a `<select>` dropdown when multiple models are configured (hidden for single-model setups). Selection updates `selectedModel` state in `App.tsx` which is passed in every `POST /api/chat` call. Backed by existing `GET /api/models` and `resolve_model_provider`.
@@ -53,7 +51,7 @@ Last updated: 2026-04-11. Generated from full codebase audit + E2E gap review.
 **Status**: Fixed. `WorkspacePanel.tsx` — three-tab panel (Soul / User / Identity) with load, edit, and save. Accessible via the "Workspace" nav button. Backed by existing `GET/PUT /api/identity/{soul,me,identity}` endpoints.
 
 ### 10. API key management absent
-**Status**: Fixed. `POST /api/auth/key` (generate/rotate) and `DELETE /api/auth/key` (revoke) added to `api/main.py`. `ApiKeyPanel` component added to sidebar — generate, rotate, revoke, and copy-to-clipboard in one place. Returns 409 when key already exists without `?force=true`.
+**Status**: Still open. The backend routes exist (`POST /api/auth/key`, legacy `POST /api/auth/generate-key`, `DELETE /api/auth/key`), but auth is still managed through the API only. `ui/src/components/ApiKeyPanel.tsx` exists, yet it is not mounted from `App.tsx`, and `tests/e2e/api-key-management.spec.ts` explicitly skips the UI coverage.
 
 ### 11. MCP server registration requires manual JSON
 **Status**: Fixed. `MCPPanel.tsx` now includes an add-server form (name, command, args), per-server enable/disable and restart buttons, and a remove button. Backed by existing `POST/DELETE/PATCH /api/mcp/servers` endpoints. Covered by `mcp-panel.spec.ts`.
@@ -81,37 +79,25 @@ Last updated: 2026-04-11. Generated from full codebase audit + E2E gap review.
 **Status**: Covered in full-coverage.spec.ts §8 (live).
 
 ### 18. No E2E test for image upload → multimodal response
-**Status**: Partial — tests upload button presence and `POST /api/documents` acceptance.  
-**Remaining gap**: No test uploads an actual image and verifies the LLM describes its contents. Requires `page.setInputFiles()` interaction + live LLM.
+**Status**: Fixed. `tests/e2e/image-upload.spec.ts` uploads a real image via the DOM file input, verifies previews/removal, and covers the live multimodal path when `OPENAI_API_KEY` is present.
 
 ### 19. No E2E test for background task lifecycle
 **Status**: Covered in full-coverage.spec.ts §10 including poll-until-complete (live).
 
 ### 20. No E2E test for scheduled task create → list → **disable**
-**Status**: Create + list covered in full-coverage.spec.ts §11.  
-**Remaining gap**: No test disables a schedule and verifies it no longer appears as enabled.
+**Status**: Fixed. `tests/e2e/schedule-disable.spec.ts` covers create → disable → verify disabled → re-enable, plus the unhappy path for unknown schedules.
 
 ### 21. No E2E test for auth enforcement
 **Status**: Covered in full-coverage.spec.ts §19 (skips if auth not enabled).
 
 ### 22. No E2E test for exec approval full UI path
-**Status**: Disallowed command rejection covered. Blocked command + metacharacter tests covered.  
-**Remaining gap**: No test sends `/exec git status` from the chat UI, waits for the approval card, clicks Approve, and verifies the command output appears.
+**Status**: Fixed. `tests/e2e/exec-approve-ui.spec.ts` exercises the full `/exec git status` approval flow in the UI, including Allow and Deny.
 
 ### 23. No Docker-stack E2E config
 **Status**: Fixed — `tests/playwright.docker.config.ts` + `npm run test:docker` added in `706c8ab`.
 
 ### 24. Bootstrap → reload → no duplicates regression
 **Status**: Covered in full-coverage.spec.ts (live, skips if already bootstrapped).
-
-### 25. No E2E test for image upload → multimodal LLM response *(new)*
-No test uses `page.setInputFiles()` to attach a real image, sends it with a question, and verifies the assistant describes the image content. Blocked until the file input is directly accessible (currently behind a button click that opens OS picker).
-
-### 26. No E2E test for schedule disable *(new)*
-No test creates a schedule via `POST /api/schedules`, then PATCHes `enabled: false`, and verifies the schedule panel shows it as disabled and the scheduler no longer runs it.
-
-### 27. No E2E test for exec Approve button in UI *(new)*
-No test exercises the full approval card flow: send `/exec git status` → wait for approval card to render → click Approve → verify command output appears in chat. The card exists in `exec.spec.ts` parsing tests but the UI click path is untested.
 
 ---
 
@@ -176,10 +162,48 @@ If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang 
 
 ---
 
+## P0 — Current Docker-Stack Regressions
+
+### 42. Bootstrap chat/UI flows are still regressing against the live stack
+**Symptom**: The Docker-stack Playwright run still fails on bootstrap-related flows that should be stable. Observed failures include `/bootstrap status` via chat in `full-coverage.spec.ts`, `/bootstrap done` without markers in `bootstrap-context.spec.ts`, and the UI chat-bubble variant of `/bootstrap done`.  
+**Root cause (unconfirmed)**: The API-only bootstrap checks pass, but several chat/UI paths fail or time out, which suggests the regression is in streamed command-result handling or bootstrap state transitions rather than the raw bootstrap endpoints themselves.  
+**Status**: Open. Reproduced on 2026-04-13 with `npx playwright test --config=playwright.docker.config.ts`.
+
+### 43. Exec approval Allow path is unreliable in the UI
+**Symptom**: `tests/e2e/exec-approve-ui.spec.ts` still fails on the happy path (`/exec git status` → Allow → output in chat) and on the approval-card content assertion, while the Deny path passes.  
+**Root cause (unconfirmed)**: This does not look like a blanket exec failure. The problem appears to be specific to the approval UI state or the post-approval result rendering path.  
+**Status**: Open. Reproduced on 2026-04-13 against the Docker stack.
+
+---
+
+## P3 — Test / Contract Drift
+
+### 44. Memory search contract is inconsistent across the API, panel, and E2E coverage
+**Symptom**: Memory search coverage is unreliable. `MemoryPanel.tsx` submits `POST /api/memory/search`, but `tests/e2e/full-coverage.spec.ts` still calls `GET /api/memory/search?q=...`, which the router does not expose. The memory panel search test also fails in the live Docker run.  
+**Root cause (partially confirmed)**: There is at least one confirmed contract mismatch: `api/routers/memory.py` only defines `POST /memory/search`, while part of the E2E suite still expects a GET route. There may also be a separate UI issue in the panel flow.  
+**Status**: Open. Reproduced on 2026-04-13.
+
+### 45. `full-coverage.spec.ts` has broad chat/slash-command drift against the current UI
+**Symptom**: A large block of `full-coverage.spec.ts` fails under the live Docker stack across chat rendering, send-button recovery, `/new`, `/clear`, `/status`, `/tool`, `/skill`, `/schedule`, `/file`, `/task`, and related command flows, while smaller smoke/API specs for several of the same features still pass.  
+**Root cause (unconfirmed)**: The failure pattern suggests suite drift rather than one backend outage. The likely causes are stale helper assumptions, stale DOM selectors, or outdated expectations for how command results now render in chat.  
+**Status**: Open. Reproduced on 2026-04-13 with the Docker-stack Playwright run.
+
+### 46. Tool and memory E2E expectations are stale in places
+**Symptom**: The Docker-stack run still reports failures for `get_current_time` result expectations and several memory-related command assertions inside `full-coverage.spec.ts`, despite the direct backend pytest suite passing and the simpler tool API checks still succeeding.  
+**Root cause (unconfirmed)**: The API/tool surfaces appear healthier than the end-to-end expectations. This points to stale test assertions about response shape or rendered text rather than a single systemic tool failure.  
+**Status**: Open. Reproduced on 2026-04-13.
+
+---
+
 ## Prioritised Fix Order
 
 | # | Issue | Effort | Impact | Status |
 |---|-------|--------|--------|--------|
+| 42 | Bootstrap chat/UI regressions on live stack | Medium | Blocking | Open |
+| 43 | Exec approval Allow path unreliable | Medium | High | Open |
+| 45 | Full-coverage Playwright suite drift | Medium | High | Open |
+| 44 | Memory search contract drift | Small | Medium | Open |
+| 46 | Tool/memory E2E expectations stale | Small | Medium | Open |
 | 1 | LLM tool call errors | — | Blocking | ✅ Fixed cc5e145 |
 | 2 | Duplicate bootstrap messages | — | Blocking | ✅ Fixed 305ccd3 |
 | 3 | Bootstrap SSE gateway timeout | — | Blocking | ✅ Fixed 0d95b1a |
@@ -190,12 +214,12 @@ If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang 
 | 5 | Memory panel UI | Medium | **High** | ✅ Fixed |
 | 8 | Model switcher UI | Small | **High** | ✅ Fixed |
 | 6 | Web search citations (function tool) | Small | Medium | ✅ Fixed |
-| 27 | E2E: exec Approve button UI | Small | Medium | ✅ Fixed |
-| 26 | E2E: schedule disable + PATCH endpoint | Small | Medium | ✅ Fixed |
-| 25 | E2E: image upload → multimodal response | Medium | Medium | ✅ Fixed |
+| 22 | E2E: exec Approve button UI | Small | Medium | ✅ Fixed |
+| 20 | E2E: schedule disable + PATCH endpoint | Small | Medium | ✅ Fixed |
+| 18 | E2E: image upload → multimodal response | Medium | Medium | ✅ Fixed |
 | 7 | PDF RAG pipeline | Large | Medium | ✅ Fixed |
 | 9 | Workspace file editors UI | Small | Low | ✅ Fixed |
-| 10 | API key management UI | Small | Low | ✅ Fixed |
+| 10 | API key management UI | Small | Low | Open |
 | 11 | MCP server form | Medium | Low | ✅ Fixed |
 | 12 | Settings panel | Large | Low | ✅ Fixed |
 | 13 | `/agent` slash command | Small | Low | ✅ Fixed |

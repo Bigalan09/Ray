@@ -213,7 +213,7 @@ Invoke with `/skill summarise <text>`.
 
 ## Security
 
-- **API key**: Disabled until generated. `POST /api/auth/generate-key` creates a key stored in `workspace/api_key`. Pass as `X-API-Key` header.
+- **API key**: Disabled until generated. `POST /api/auth/key` creates a key stored in `workspace/api_key`. Pass as `X-API-Key` header.
 - **Rate limiting**: Configurable via `.env`. Defaults to 1200 req/min, 200 burst. Keys by API key → forwarded IP → socket IP.
 - **Audit logging**: Mutating requests logged to `workspace/audit.db`.
 - **All ports** bound to `127.0.0.1`.
@@ -225,7 +225,7 @@ Invoke with `/skill summarise <text>`.
 
 ```bash
 # API unit + integration tests (148 tests, live OpenAI auto-skipped if no key)
-cd api && python -m pytest tests/ -v
+cd api && .venv/bin/python -m pytest tests/ -v
 
 # E2E against local dev stack
 cd tests && npm test
@@ -245,24 +245,32 @@ cd tests && npm run test:api
 ## Development
 
 ```bash
+# Backend dependencies
+cd api
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+
 # API (hot reload)
-cd api && uvicorn main:app --reload --port 8000
+.venv/bin/python -m uvicorn main:app --reload --port 8000
 
 # UI (HMR)
 cd ui && API_URL=http://localhost:8000 bun run dev
 
 # Or from repo root
 npm run ui:dev
+npm run ui:build
 npm run docker:up
 ```
 
 Install dependencies first:
 
 ```bash
-cd api && pip install -r requirements.txt
+cd api && python3.13 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
 cd ui && bun install
 cd tests && npm install
 ```
+
+Playwright prefers `api/.venv/bin/python` when it is healthy, then falls back to `python3.13`, `python3.12`, and finally `python3`. Python 3.14 is currently too new for the pinned ChromaDB stack. Override with `PYTHON_BIN` if you need a different interpreter.
 
 ---
 

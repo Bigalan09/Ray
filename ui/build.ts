@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import plugin from "bun-plugin-tailwind";
 import { existsSync } from "fs";
 import { rm } from "fs/promises";
 import path from "path";
@@ -7,12 +6,42 @@ import path from "path";
 console.log("\nStarting build...\n");
 
 const outdir = path.join(process.cwd(), "dist");
+const generatedCss = path.join("src", "index.generated.css");
+
+async function buildCss(minify: boolean) {
+  const args = [
+    "bun",
+    "x",
+    "@tailwindcss/cli",
+    "-i",
+    "./src/index.css",
+    "-o",
+    `./${generatedCss}`,
+  ];
+
+  if (minify) {
+    args.push("--minify");
+  }
+
+  const proc = Bun.spawn(args, {
+    cwd: process.cwd(),
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`Tailwind CSS build failed with exit code ${exitCode}`);
+  }
+}
 
 if (existsSync(outdir)) {
   await rm(outdir, { recursive: true, force: true });
 }
 
 const start = performance.now();
+
+await buildCss(true);
 
 const entrypoints = [...new Bun.Glob("**.html").scanSync("src")]
   .map(a => path.resolve("src", a))
@@ -21,7 +50,6 @@ const entrypoints = [...new Bun.Glob("**.html").scanSync("src")]
 const result = await Bun.build({
   entrypoints,
   outdir,
-  plugins: [plugin],
   minify: true,
   target: "browser",
   sourcemap: "linked",
