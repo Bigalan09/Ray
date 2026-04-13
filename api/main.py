@@ -39,6 +39,7 @@ async def lifespan(app: FastAPI):
     try:
         from hooks.engine import hook_engine
         hook_engine.load_config()
+        await hook_engine.emit("gateway:startup", {})
     except Exception as e:
         print(f"Hooks startup warning: {e}")
     yield

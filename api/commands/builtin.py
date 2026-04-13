@@ -1,6 +1,7 @@
 """Built-in slash commands."""
 from __future__ import annotations
 
+import asyncio
 import json
 
 from commands.registry import register_command
@@ -16,6 +17,10 @@ async def _help(args_str: str, context: dict) -> dict:
 
 
 async def _new(args_str: str, context: dict) -> dict:
+    from hooks.engine import hook_engine
+    asyncio.create_task(hook_engine.emit("command:new", {
+        "conversation_id": context.get("conversation_id"),
+    }))
     return {"content": "New session started.", "action": "clear"}
 
 
@@ -32,6 +37,11 @@ async def _compact(args_str: str, context: dict) -> dict:
     conv_id = context.get("conversation_id")
     if not conv_id:
         return {"content": "No active conversation to compact.", "error": True}
+
+    from hooks.engine import hook_engine
+    asyncio.create_task(hook_engine.emit("session:compact:before", {
+        "conversation_id": conv_id,
+    }))
 
     instructions = args_str.strip() if args_str.strip() else "Summarise the conversation so far in a few bullet points. Keep key decisions, action items, and context."
 
@@ -145,6 +155,8 @@ async def _task(args_str: str, context: dict) -> dict:
         task_id = args[7:].strip()
         from tasks.store import update_task_status, TaskStatus
         update_task_status(task_id, TaskStatus.CANCELLED)
+        from hooks.engine import hook_engine
+        asyncio.create_task(hook_engine.emit("command:stop", {"task_id": task_id}))
         return {"content": f"Task `{task_id[:8]}` cancelled."}
 
     # Create and run a new task
@@ -178,6 +190,8 @@ async def _bootstrap(args_str: str, context: dict) -> dict:
 
     if args == "reset":
         reset_bootstrap()
+        from hooks.engine import hook_engine
+        asyncio.create_task(hook_engine.emit("command:reset", {}))
         return {"content": "Bootstrap reset. The next message will start the onboarding conversation.", "action": "clear"}
 
     if args == "done":
@@ -204,6 +218,10 @@ async def _bootstrap(args_str: str, context: dict) -> dict:
 
                         if identity:
                             mark_bootstrapped(identity, soul, user)
+                            from hooks.engine import hook_engine
+                            asyncio.create_task(hook_engine.emit("agent:bootstrap", {
+                                "conversation_id": conv_id,
+                            }))
                             saved = ["IDENTITY.md"]
                             if soul:
                                 saved.append("SOUL.md")

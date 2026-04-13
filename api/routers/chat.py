@@ -297,6 +297,9 @@ async def chat(request: Request):
         asyncio.create_task(hook_engine.emit("message_received", {
             "conversation_id": conversation_id, "model": model,
         }))
+        asyncio.create_task(hook_engine.emit("message:received", {
+            "conversation_id": conversation_id, "model": model,
+        }))
 
         # Extract last user message text (handles multi-part content with images)
         last_user_msg = ""
@@ -395,9 +398,16 @@ async def chat(request: Request):
         temperature = payload.get("temperature")
         effective_temp = temperature if temperature is not None else agent_ctx["temperature"]
 
+        asyncio.create_task(hook_engine.emit("message:preprocessed", {
+            "conversation_id": conversation_id, "agent": agent_name,
+            "model": deployment, "memory_count": len(injected_memories),
+            "document_count": len(injected_documents),
+        }))
+
         return await _chat_direct(
             deployment, agent_name, agent_ctx, effective_temp,
             messages, conversation_id, request,
+            origin_command=cmd_name if cmd else None,
         )
     except Exception:
         request_id = get_request_id() or None
@@ -423,6 +433,7 @@ async def chat(request: Request):
 async def _chat_direct(
     model: str, agent_name: str, agent_ctx: dict, temperature: float,
     messages: list[dict], conversation_id: str | None, request: Request,
+    origin_command: str | None = None,
 ):
     """Handle chat via direct streaming."""
     from hooks.engine import hook_engine
@@ -781,6 +792,15 @@ async def _chat_direct(
                     "conversation_id": conversation_id, "agent": agent_name,
                     "model": resolved_model, "response_length": len(accumulated_response),
                 }))
+                asyncio.create_task(hook_engine.emit("message:sent", {
+                    "conversation_id": conversation_id, "agent": agent_name,
+                    "model": resolved_model, "response_length": len(accumulated_response),
+                }))
+                if origin_command == "compact":
+                    asyncio.create_task(hook_engine.emit("session:compact:after", {
+                        "conversation_id": conversation_id,
+                        "summary_length": len(accumulated_response),
+                    }))
             except Exception:
                 log.warning("Failed to persist direct response", exc_info=True)
 

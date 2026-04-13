@@ -42,6 +42,7 @@ class HookLogEntry(BaseModel):
 
 
 # All supported event names.
+# Legacy underscore-separated events (webhook-oriented, kept for backwards compat).
 SUPPORTED_EVENTS = [
     "message_received",
     "command_executed",
@@ -56,3 +57,27 @@ SUPPORTED_EVENTS = [
     "session_created",
     "session_deleted",
 ]
+
+# Internal hook events (colon-separated, for in-process Python listeners).
+INTERNAL_EVENTS = [
+    # Gateway lifecycle
+    "gateway:startup",
+    # Commands
+    "command",              # any command executed
+    "command:new",          # /new
+    "command:reset",        # /bootstrap reset
+    "command:stop",         # task cancel / abort
+    # Session lifecycle
+    "session:compact:before",
+    "session:compact:after",
+    "session:patch",        # conversation metadata update
+    # Agent
+    "agent:bootstrap",      # bootstrap onboarding completed
+    # Message lifecycle
+    "message:received",     # user message arrives
+    "message:preprocessed", # after proactive memory injection / system prompt built
+    "message:sent",         # assistant response persisted
+]
+
+# Combined list for validation / API display.
+ALL_EVENTS = SUPPORTED_EVENTS + INTERNAL_EVENTS
