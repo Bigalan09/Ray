@@ -13,7 +13,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  OWNER: ${{ github.repository_owner }}
+  OWNER: ${{ lower(github.repository_owner) }}
 
 jobs:
   build-and-push:

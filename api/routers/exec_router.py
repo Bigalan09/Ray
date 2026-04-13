@@ -6,7 +6,7 @@ import logging
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from commands.exec_pending import get_pending, remove_pending
+from commands.exec_pending import get_pending, remove_pending, list_pending
 from commands.exec_runner import run_command
 
 log = logging.getLogger(__name__)
@@ -25,6 +25,12 @@ _EXPIRED_RESPONSE = {
     "error": True,
     "expired": True,
 }
+
+
+@router.get("/exec/pending")
+async def get_pending_list():
+    """List all pending exec commands awaiting user approval."""
+    return list_pending()
 
 
 @router.post("/exec/approve")

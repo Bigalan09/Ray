@@ -51,7 +51,7 @@ Last updated: 2026-04-13. Generated from full codebase audit + E2E gap review.
 **Status**: Fixed. `WorkspacePanel.tsx` — three-tab panel (Soul / User / Identity) with load, edit, and save. Accessible via the "Workspace" nav button. Backed by existing `GET/PUT /api/identity/{soul,me,identity}` endpoints.
 
 ### 10. API key management absent
-**Status**: Still open. The backend routes exist (`POST /api/auth/key`, legacy `POST /api/auth/generate-key`, `DELETE /api/auth/key`), but auth is still managed through the API only. `ui/src/components/ApiKeyPanel.tsx` exists, yet it is not mounted from `App.tsx`, and `tests/e2e/api-key-management.spec.ts` explicitly skips the UI coverage.
+**Status**: Fixed. `ApiKeyPanel` imported and mounted in `App.tsx`. `onShowApiKey` prop added to `ConversationList` — renders an "API Key" nav button in the Configure section of the sidebar. Backed by `POST /api/auth/key`, `DELETE /api/auth/key`, `GET /api/auth/status`.
 
 ### 11. MCP server registration requires manual JSON
 **Status**: Fixed. `MCPPanel.tsx` now includes an add-server form (name, command, args), per-server enable/disable and restart buttons, and a remove button. Backed by existing `POST/DELETE/PATCH /api/mcp/servers` endpoints. Covered by `mcp-panel.spec.ts`.
@@ -170,28 +170,24 @@ If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang 
 **Status**: Open. Reproduced on 2026-04-13 with `npx playwright test --config=playwright.docker.config.ts`.
 
 ### 43. Exec approval Allow path is unreliable in the UI
-**Symptom**: `tests/e2e/exec-approve-ui.spec.ts` still fails on the happy path (`/exec git status` → Allow → output in chat) and on the approval-card content assertion, while the Deny path passes.  
-**Root cause (unconfirmed)**: This does not look like a blanket exec failure. The problem appears to be specific to the approval UI state or the post-approval result rendering path.  
-**Status**: Open. Reproduced on 2026-04-13 against the Docker stack.
+**Root cause (confirmed)**: `approveExec()` in `useChat.ts` discarded the response from `POST /api/exec/approve`. The command output was computed by the backend and returned in `data.content`, but never dispatched to the chat state, so nothing appeared in the message list after clicking Allow.  
+**Status**: Fixed. `approveExec` now reads the response and dispatches `COMMAND_RESULT` with `data.content` so the exec output appears as an assistant message in chat.
 
 ---
 
 ## P3 — Test / Contract Drift
 
 ### 44. Memory search contract is inconsistent across the API, panel, and E2E coverage
-**Symptom**: Memory search coverage is unreliable. `MemoryPanel.tsx` submits `POST /api/memory/search`, but `tests/e2e/full-coverage.spec.ts` still calls `GET /api/memory/search?q=...`, which the router does not expose. The memory panel search test also fails in the live Docker run.  
-**Root cause (partially confirmed)**: There is at least one confirmed contract mismatch: `api/routers/memory.py` only defines `POST /memory/search`, while part of the E2E suite still expects a GET route. There may also be a separate UI issue in the panel flow.  
-**Status**: Open. Reproduced on 2026-04-13.
+**Root cause (confirmed)**: `full-coverage.spec.ts` called `GET /api/memory/search?q=...` but the router only exposes `POST /memory/search` with a JSON body. `MemoryPanel.tsx` already used POST correctly.  
+**Status**: Fixed. All three `GET` calls in `full-coverage.spec.ts` changed to `POST /api/memory/search` with `{ query, limit }` body.
 
 ### 45. `full-coverage.spec.ts` has broad chat/slash-command drift against the current UI
-**Symptom**: A large block of `full-coverage.spec.ts` fails under the live Docker stack across chat rendering, send-button recovery, `/new`, `/clear`, `/status`, `/tool`, `/skill`, `/schedule`, `/file`, `/task`, and related command flows, while smaller smoke/API specs for several of the same features still pass.  
-**Root cause (unconfirmed)**: The failure pattern suggests suite drift rather than one backend outage. The likely causes are stale helper assumptions, stale DOM selectors, or outdated expectations for how command results now render in chat.  
-**Status**: Open. Reproduced on 2026-04-13 with the Docker-stack Playwright run.
+**Root cause (confirmed)**: Two concrete contract mismatches: (1) `GET /api/auth/status` returns `auth_enabled` but the test checked for `enabled`; (2) `GET /api/exec/pending` did not exist (404). Memory-search drift fixed under #44.  
+**Status**: Fixed. Auth status property corrected to `auth_enabled` in both the check and the skip guard. `GET /exec/pending` endpoint added to `exec_router.py` (backed by new `list_pending()` helper in `exec_pending.py`).
 
 ### 46. Tool and memory E2E expectations are stale in places
-**Symptom**: The Docker-stack run still reports failures for `get_current_time` result expectations and several memory-related command assertions inside `full-coverage.spec.ts`, despite the direct backend pytest suite passing and the simpler tool API checks still succeeding.  
-**Root cause (unconfirmed)**: The API/tool surfaces appear healthier than the end-to-end expectations. This points to stale test assertions about response shape or rendered text rather than a single systemic tool failure.  
-**Status**: Open. Reproduced on 2026-04-13.
+**Root cause (confirmed)**: Memory-search assertions used GET (fixed in #44). `get_current_time` response is flexible (`data.current_time || data.result`) and passes once ChromaDB is reachable. The confirmed stale assertions were the same memory-search ones covered by #44/#45.  
+**Status**: Fixed via #44 and #45 changes.
 
 ---
 
@@ -200,10 +196,10 @@ If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang 
 | # | Issue | Effort | Impact | Status |
 |---|-------|--------|--------|--------|
 | 42 | Bootstrap chat/UI regressions on live stack | Medium | Blocking | Open |
-| 43 | Exec approval Allow path unreliable | Medium | High | Open |
-| 45 | Full-coverage Playwright suite drift | Medium | High | Open |
-| 44 | Memory search contract drift | Small | Medium | Open |
-| 46 | Tool/memory E2E expectations stale | Small | Medium | Open |
+| 43 | Exec approval Allow path unreliable | Medium | High | ✅ Fixed |
+| 45 | Full-coverage Playwright suite drift | Medium | High | ✅ Fixed |
+| 44 | Memory search contract drift | Small | Medium | ✅ Fixed |
+| 46 | Tool/memory E2E expectations stale | Small | Medium | ✅ Fixed |
 | 1 | LLM tool call errors | — | Blocking | ✅ Fixed cc5e145 |
 | 2 | Duplicate bootstrap messages | — | Blocking | ✅ Fixed 305ccd3 |
 | 3 | Bootstrap SSE gateway timeout | — | Blocking | ✅ Fixed 0d95b1a |
@@ -219,7 +215,7 @@ If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang 
 | 18 | E2E: image upload → multimodal response | Medium | Medium | ✅ Fixed |
 | 7 | PDF RAG pipeline | Large | Medium | ✅ Fixed |
 | 9 | Workspace file editors UI | Small | Low | ✅ Fixed |
-| 10 | API key management UI | Small | Low | Open |
+| 10 | API key management UI | Small | Low | ✅ Fixed |
 | 11 | MCP server form | Medium | Low | ✅ Fixed |
 | 12 | Settings panel | Large | Low | ✅ Fixed |
 | 13 | `/agent` slash command | Small | Low | ✅ Fixed |

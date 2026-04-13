@@ -533,8 +533,10 @@ test.describe("Web search (live)", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Memory", () => {
-  test("GET /api/memory/search returns results or empty array", async ({ request }) => {
-    const resp = await request.get("/api/memory/search?q=test&limit=5");
+  test("POST /api/memory/search returns results or empty array", async ({ request }) => {
+    const resp = await request.post("/api/memory/search", {
+      data: { query: "test", limit: 5 },
+    });
     expect(resp.ok()).toBeTruthy();
     const data = await resp.json();
     expect(Array.isArray(data.results ?? data)).toBeTruthy();
@@ -563,7 +565,9 @@ test.describe("Memory", () => {
       },
     });
     // Search
-    const searchResp = await request.get(`/api/memory/search?q=${unique}&limit=5`);
+    const searchResp = await request.post("/api/memory/search", {
+      data: { query: unique, limit: 5 },
+    });
     const data = await searchResp.json();
     const results = data.results ?? data;
     const found = results.some((r: any) =>
@@ -615,7 +619,9 @@ test.describe("Memory", () => {
     expect(reply).toContain(token);
 
     // Cleanup
-    const searchResp = await request.get(`/api/memory/search?q=${token}&limit=5`);
+    const searchResp = await request.post("/api/memory/search", {
+      data: { query: token, limit: 5 },
+    });
     const data = await searchResp.json();
     const results: any[] = data.results ?? data;
     for (const r of results) {
@@ -1176,12 +1182,12 @@ test.describe("Auth", () => {
     const resp = await request.get("/api/auth/status");
     expect(resp.ok()).toBeTruthy();
     const data = await resp.json();
-    expect(data).toHaveProperty("enabled");
+    expect(data).toHaveProperty("auth_enabled");
   });
 
   test("when auth is enabled, requests without key return 401", async ({ request }) => {
     const status = await (await request.get("/api/auth/status")).json();
-    if (!status.enabled) {
+    if (!status.auth_enabled) {
       test.skip(true, "Auth not enabled — skipping 401 test");
     }
 

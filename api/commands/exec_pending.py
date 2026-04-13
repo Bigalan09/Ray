@@ -62,6 +62,19 @@ def remove_pending(pending_id: str) -> None:
     _pending.pop(pending_id, None)
 
 
+def list_pending() -> list[dict]:
+    """Return a summary of all pending (non-expired) exec commands."""
+    _cleanup_expired()
+    return [
+        {
+            "id": p.id,
+            "command": " ".join(p.tokens),
+            "created_at": p.created_at,
+        }
+        for p in _pending.values()
+    ]
+
+
 def _cleanup_expired() -> None:
     """Remove all expired entries. Called lazily."""
     now = time.time()
