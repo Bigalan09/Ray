@@ -139,7 +139,11 @@ def update_conversation_title(conv_id: str, title: str) -> bool:
     )
     db.commit()
     db.close()
-    return cursor.rowcount > 0
+    updated = cursor.rowcount > 0
+    if updated:
+        from hooks.engine import emit_sync
+        emit_sync("session:patch", {"conversation_id": conv_id, "title": title})
+    return updated
 
 
 def add_message(conv_id: str, role: str, content: str | list, metadata: dict | None = None) -> dict:

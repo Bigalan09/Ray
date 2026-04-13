@@ -79,6 +79,9 @@ async def execute_command(name: str, args_str: str, context: dict | None = None)
         asyncio.create_task(hook_engine.emit("command_executed", {
             "command": name, "args": args_str, "error": result.get("error", False),
         }))
+        asyncio.create_task(hook_engine.emit("command", {
+            "command": name, "args": args_str, "error": result.get("error", False),
+        }))
         asyncio.create_task(hook_engine.post(f"command:{name}", {
             "command": name, "args": args_str, "result": result.get("content", "")[:200],
         }))

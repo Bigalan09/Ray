@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from hooks.engine import hook_engine
-from hooks.models import SUPPORTED_EVENTS
+from hooks.models import SUPPORTED_EVENTS, INTERNAL_EVENTS, ALL_EVENTS
 
 router = APIRouter()
 
@@ -56,7 +56,17 @@ async def test_webhook(name: str):
 
 @router.get("/hooks/events")
 async def list_events():
-    return SUPPORTED_EVENTS
+    return {
+        "webhook_events": SUPPORTED_EVENTS,
+        "internal_events": INTERNAL_EVENTS,
+        "all": ALL_EVENTS,
+    }
+
+
+@router.get("/hooks/listeners")
+async def list_listeners():
+    """Return registered internal hook listeners (pattern -> count)."""
+    return hook_engine.listeners()
 
 
 @router.get("/hooks/log")

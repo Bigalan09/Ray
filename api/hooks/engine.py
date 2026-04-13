@@ -9,6 +9,7 @@ import time
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Awaitable, Callable
 
 import yaml
 
@@ -18,6 +19,8 @@ from hooks.models import (
     PrePostHook,
     HookLogEntry,
     SUPPORTED_EVENTS,
+    INTERNAL_EVENTS,
+    ALL_EVENTS,
 )
 from hooks.handlers import webhook_handler, log_handler
 
@@ -27,13 +30,65 @@ log = logging.getLogger(__name__)
 _hook_log: deque[HookLogEntry] = deque(maxlen=100)
 
 
+InternalHookCallback = Callable[..., Awaitable[None]]
+
+
 class HookEngine:
-    """Central dispatcher for lifecycle events, webhooks, and pre/post hooks."""
+    """Central dispatcher for lifecycle events, webhooks, pre/post hooks,
+    and internal (in-process) Python listeners."""
 
     def __init__(self):
         self._webhooks: list[WebhookConfig] = []
         self._pre_hooks: list[PrePostHook] = []
         self._post_hooks: list[PrePostHook] = []
+        # Internal listeners: event pattern -> list of async callables
+        self._listeners: dict[str, list[InternalHookCallback]] = {}
+
+    # ------------------------------------------------------------------
+    # Internal listener registration
+    # ------------------------------------------------------------------
+
+    def on(self, event: str, callback: InternalHookCallback) -> None:
+        """Register an async callable to be invoked when *event* fires.
+
+        *event* may contain ``*`` or ``?`` glob characters
+        (e.g. ``"command:*"`` matches ``"command:new"``, ``"command:reset"``).
+        """
+        self._listeners.setdefault(event, [])
+        if callback not in self._listeners[event]:
+            self._listeners[event].append(callback)
+
+    def off(self, event: str, callback: InternalHookCallback) -> bool:
+        """Remove a previously registered listener. Returns True if found."""
+        cbs = self._listeners.get(event, [])
+        try:
+            cbs.remove(callback)
+            return True
+        except ValueError:
+            return False
+
+    def listeners(self, event: str | None = None) -> dict[str, int]:
+        """Return a mapping of event pattern -> listener count.
+
+        If *event* is given, only patterns matching that event are included.
+        """
+        if event is None:
+            return {k: len(v) for k, v in self._listeners.items() if v}
+        return {
+            k: len(v) for k, v in self._listeners.items()
+            if v and fnmatch.fnmatch(event, k)
+        }
+
+    async def _dispatch_internal(self, event: str, context: dict) -> None:
+        """Invoke all internal listeners whose pattern matches *event*."""
+        for pattern, callbacks in self._listeners.items():
+            if not fnmatch.fnmatch(event, pattern):
+                continue
+            for cb in callbacks:
+                try:
+                    await cb(event, context)
+                except Exception:
+                    log.warning("Internal hook error for %s (pattern=%s)", event, pattern, exc_info=True)
 
     # ------------------------------------------------------------------
     # Config loading
@@ -91,14 +146,17 @@ class HookEngine:
     # ------------------------------------------------------------------
 
     async def emit(self, event: str, context: dict | None = None):
-        """Fire-and-forget dispatch to all webhooks subscribed to this event."""
+        """Fire-and-forget dispatch to webhooks and internal listeners."""
         ctx = context or {}
+        # Webhooks (HTTP)
         for wh in self._webhooks:
             if not wh.enabled:
                 continue
             if event not in wh.events:
                 continue
             asyncio.create_task(self._dispatch_webhook(wh, event, ctx))
+        # Internal (in-process) listeners
+        asyncio.create_task(self._dispatch_internal(event, ctx))
 
     async def pre(self, trigger: str, context: dict | None = None) -> dict | None:
         """Run pre-hooks for a trigger. Returns {cancel: True, reason: ...} or None."""
