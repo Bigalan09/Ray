@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 from abc import ABC, abstractmethod
 from typing import AsyncIterator
@@ -9,7 +8,7 @@ import httpx
 from openai import APIConnectionError, APIStatusError, APITimeoutError
 
 from config import settings, load_yaml, get_default_model
-from llm.responses import DEFAULT_OPENAI_BASE_URL, _get_client, build_request_kwargs
+from llm.responses import DEFAULT_OPENAI_BASE_URL, _get_async_client, build_request_kwargs
 
 
 class RetryableStreamError(Exception):
@@ -58,7 +57,6 @@ class OpenAIResponsesProvider(LLMProvider):
         model: str | None = None,
     ) -> AsyncIterator[str]:
         resolved_model = model or get_default_model()
-        client = _get_client()
         request_kwargs = build_request_kwargs(
             messages=messages,
             model=resolved_model,
@@ -66,148 +64,140 @@ class OpenAIResponsesProvider(LLMProvider):
             tools=tools,
             stream=True,
         )
-        # Use asyncio.Queue + call_soon_threadsafe so the reader never occupies
-        # a thread pool thread.  The old pattern used asyncio.to_thread for the
-        # consumer side, which meant each active request held TWO thread pool
-        # threads (one for _stream, one blocking on queue.Queue.get).  Under
-        # concurrent load that exhausted the pool, stalling subsequent tool-call
-        # rounds and triggering proxy-level 500s.
-        loop = asyncio.get_running_loop()
-        async_queue: asyncio.Queue = asyncio.Queue()
+        try:
+            stream = await _get_async_client().responses.create(**request_kwargs)
+        except APIStatusError as exc:
+            retry_after = None
+            response = getattr(exc, "response", None)
+            if response is not None:
+                retry_after = response.headers.get("retry-after")
+            if exc.status_code == 429 or 500 <= exc.status_code < 600:
+                raise RetryableStreamError(
+                    status=exc.status_code,
+                    message=str(exc),
+                    retry_after=retry_after,
+                )
+            yield f'data: {json.dumps({"error": "API Error", "message": str(exc), "status": exc.status_code})}'
+            return
+        except (APIConnectionError, APITimeoutError) as exc:
+            raise RetryableStreamError(status=503, message=str(exc))
+        except Exception as exc:
+            yield f'data: {json.dumps({"error": "API Error", "message": str(exc)})}'
+            return
 
-        def _stream() -> None:
-            try:
-                stream = client.responses.create(**request_kwargs)
-                for event in stream:
-                    loop.call_soon_threadsafe(async_queue.put_nowait, event)
-            except Exception as exc:
-                loop.call_soon_threadsafe(async_queue.put_nowait, exc)
-            finally:
-                loop.call_soon_threadsafe(async_queue.put_nowait, None)
+        try:
+            async for event in stream:
+                event_type = getattr(event, "type", "")
 
-        loop.run_in_executor(None, _stream)
-
-        while True:
-            event = await async_queue.get()
-            if event is None:
-                break
-
-            if isinstance(event, APIStatusError):
-                retry_after = None
-                response = getattr(event, "response", None)
-                if response is not None:
-                    retry_after = response.headers.get("retry-after")
-                if event.status_code == 429 or 500 <= event.status_code < 600:
-                    raise RetryableStreamError(
-                        status=event.status_code,
-                        message=str(event),
-                        retry_after=retry_after,
-                    )
-                yield f'data: {json.dumps({"error": "API Error", "message": str(event), "status": event.status_code})}'
-                return
-
-            if isinstance(event, (APIConnectionError, APITimeoutError)):
-                raise RetryableStreamError(status=503, message=str(event))
-
-            if isinstance(event, Exception):
-                yield f'data: {json.dumps({"error": "API Error", "message": str(event)})}'
-                return
-
-            event_type = getattr(event, "type", "")
-
-            if event_type == "response.output_text.delta":
-                chunk = {
-                    "choices": [{
-                        "delta": {"content": event.delta},
-                        "index": 0,
-                    }]
-                }
-                yield f"data: {json.dumps(chunk)}"
-
-            elif event_type == "response.output_item.added":
-                item = getattr(event, "item", None)
-                if getattr(item, "type", None) != "function_call":
-                    continue
-                tool_call = {
-                    "index": getattr(event, "output_index", 0),
-                    "id": getattr(item, "call_id", "") or getattr(item, "id", ""),
-                    "type": "function",
-                    "function": {"name": getattr(item, "name", "")},
-                }
-                chunk = {
-                    "choices": [{
-                        "delta": {"tool_calls": [tool_call]},
-                        "index": 0,
-                    }]
-                }
-                yield f"data: {json.dumps(chunk)}"
-
-            elif event_type == "response.function_call_arguments.delta":
-                tool_call = {
-                    "index": getattr(event, "output_index", 0),
-                    "function": {"arguments": getattr(event, "delta", "")},
-                }
-                chunk = {
-                    "choices": [{
-                        "delta": {"tool_calls": [tool_call]},
-                        "index": 0,
-                    }]
-                }
-                yield f"data: {json.dumps(chunk)}"
-
-            elif event_type in (
-                "response.web_search_call.in_progress",
-                "response.web_search_call.searching",
-            ):
-                item = getattr(event, "item", None)
-                query = getattr(item, "query", None) or ""
-                yield f"data: {json.dumps({'ray_tool': {'name': 'web_search', 'status': 'running', 'arguments': {'query': query}}})}"
-
-            elif event_type == "response.web_search_call.completed":
-                yield f"data: {json.dumps({'ray_tool': {'name': 'web_search', 'status': 'success', 'result': {'searched': True}}})}"
-
-            elif event_type == "error":
-                message = getattr(event, "message", "Unknown API error")
-                yield f'data: {json.dumps({"error": "API Error", "message": message})}'
-                return
-
-            elif event_type == "response.completed":
-                response = getattr(event, "response", None)
-                usage_data = {}
-                usage = getattr(response, "usage", None)
-                if usage is not None:
-                    usage_data = {
-                        "prompt_tokens": getattr(usage, "input_tokens", 0),
-                        "completion_tokens": getattr(usage, "output_tokens", 0),
-                        "total_tokens": getattr(usage, "total_tokens", 0),
+                if event_type == "response.output_text.delta":
+                    chunk = {
+                        "choices": [{
+                            "delta": {"content": event.delta},
+                            "index": 0,
+                        }]
                     }
+                    yield f"data: {json.dumps(chunk)}"
 
-                finish_reason = "stop"
-                citations: list[dict] = []
-                for item in getattr(response, "output", []) or []:
-                    item_type = getattr(item, "type", None)
-                    if item_type == "function_call":
-                        finish_reason = "tool_calls"
-                        break  # tool-call response; no citations to collect
-                    elif item_type == "message":
-                        for part in getattr(item, "content", []) or []:
-                            if getattr(part, "type", None) == "output_text":
-                                for ann in getattr(part, "annotations", []) or []:
-                                    if getattr(ann, "type", None) == "url_citation":
-                                        citations.append({
-                                            "url": getattr(ann, "url", ""),
-                                            "title": getattr(ann, "title", ""),
-                                        })
+                elif event_type == "response.output_item.added":
+                    item = getattr(event, "item", None)
+                    if getattr(item, "type", None) != "function_call":
+                        continue
+                    tool_call = {
+                        "index": getattr(event, "output_index", 0),
+                        "id": getattr(item, "call_id", "") or getattr(item, "id", ""),
+                        "type": "function",
+                        "function": {"name": getattr(item, "name", "")},
+                    }
+                    chunk = {
+                        "choices": [{
+                            "delta": {"tool_calls": [tool_call]},
+                            "index": 0,
+                        }]
+                    }
+                    yield f"data: {json.dumps(chunk)}"
 
-                if citations:
-                    yield f"data: {json.dumps({'ray_citations': citations})}"
+                elif event_type == "response.function_call_arguments.delta":
+                    tool_call = {
+                        "index": getattr(event, "output_index", 0),
+                        "function": {"arguments": getattr(event, "delta", "")},
+                    }
+                    chunk = {
+                        "choices": [{
+                            "delta": {"tool_calls": [tool_call]},
+                            "index": 0,
+                        }]
+                    }
+                    yield f"data: {json.dumps(chunk)}"
 
-                chunk_data: dict = {
-                    "choices": [{"delta": {}, "index": 0, "finish_reason": finish_reason}],
-                }
-                if usage_data:
-                    chunk_data["usage"] = usage_data
-                yield f"data: {json.dumps(chunk_data)}"
+                elif event_type in (
+                    "response.web_search_call.in_progress",
+                    "response.web_search_call.searching",
+                ):
+                    item = getattr(event, "item", None)
+                    query = getattr(item, "query", None) or ""
+                    yield f"data: {json.dumps({'ray_tool': {'name': 'web_search', 'status': 'running', 'arguments': {'query': query}}})}"
+
+                elif event_type == "response.web_search_call.completed":
+                    yield f"data: {json.dumps({'ray_tool': {'name': 'web_search', 'status': 'success', 'result': {'searched': True}}})}"
+
+                elif event_type == "error":
+                    message = getattr(event, "message", "Unknown API error")
+                    yield f'data: {json.dumps({"error": "API Error", "message": message})}'
+                    return
+
+                elif event_type == "response.completed":
+                    response = getattr(event, "response", None)
+                    usage_data = {}
+                    usage = getattr(response, "usage", None)
+                    if usage is not None:
+                        usage_data = {
+                            "prompt_tokens": getattr(usage, "input_tokens", 0),
+                            "completion_tokens": getattr(usage, "output_tokens", 0),
+                            "total_tokens": getattr(usage, "total_tokens", 0),
+                        }
+
+                    finish_reason = "stop"
+                    citations: list[dict] = []
+                    for item in getattr(response, "output", []) or []:
+                        item_type = getattr(item, "type", None)
+                        if item_type == "function_call":
+                            finish_reason = "tool_calls"
+                            break  # tool-call response; no citations to collect
+                        elif item_type == "message":
+                            for part in getattr(item, "content", []) or []:
+                                if getattr(part, "type", None) == "output_text":
+                                    for ann in getattr(part, "annotations", []) or []:
+                                        if getattr(ann, "type", None) == "url_citation":
+                                            citations.append({
+                                                "url": getattr(ann, "url", ""),
+                                                "title": getattr(ann, "title", ""),
+                                            })
+
+                    if citations:
+                        yield f"data: {json.dumps({'ray_citations': citations})}"
+
+                    chunk_data: dict = {
+                        "choices": [{"delta": {}, "index": 0, "finish_reason": finish_reason}],
+                    }
+                    if usage_data:
+                        chunk_data["usage"] = usage_data
+                    yield f"data: {json.dumps(chunk_data)}"
+
+        except APIStatusError as exc:
+            retry_after = None
+            response = getattr(exc, "response", None)
+            if response is not None:
+                retry_after = response.headers.get("retry-after")
+            if exc.status_code == 429 or 500 <= exc.status_code < 600:
+                raise RetryableStreamError(
+                    status=exc.status_code,
+                    message=str(exc),
+                    retry_after=retry_after,
+                )
+            yield f'data: {json.dumps({"error": "API Error", "message": str(exc), "status": exc.status_code})}'
+            return
+        except (APIConnectionError, APITimeoutError) as exc:
+            raise RetryableStreamError(status=503, message=str(exc))
 
         yield "data: [DONE]"
 

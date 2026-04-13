@@ -85,6 +85,7 @@ ray-grafana     dashboards (localhost:3001 / grafana.bigalan.dev)
 | Mobile-responsive UI | ✅ sidebar drawer, 44 px touch targets, dvh layout |
 | Browser telemetry (RUM) | ✅ batched events → structlog + Prometheus |
 | Response timing display | ✅ shown in status bar |
+| Structured chat errors | ✅ sanitised SSE errors with request IDs |
 
 ---
 
@@ -229,7 +230,7 @@ Invoke with `/skill summarise <text>`.
 ## Testing
 
 ```bash
-# API unit + integration tests (148 tests, live OpenAI auto-skipped if no key)
+# API unit + integration tests (169 tests, live OpenAI auto-skipped if no key)
 cd api && .venv/bin/python -m pytest tests/ -v
 
 # E2E against local dev stack

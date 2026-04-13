@@ -1,6 +1,6 @@
 # Ray — Known Issues & Feature Gaps
 
-Last updated: 2026-04-13. Generated from full codebase audit + E2E gap review.
+Last updated: 2026-04-13. Generated from full codebase audit + E2E gap review + concurrency hardening.
 
 ---
 
@@ -189,6 +189,21 @@ If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang 
 **Root cause (confirmed)**: Memory-search assertions used GET (fixed in #44). `get_current_time` response is flexible (`data.current_time || data.result`) and passes once ChromaDB is reachable. The confirmed stale assertions were the same memory-search ones covered by #44/#45.  
 **Status**: Fixed via #44 and #45 changes.
 
+### 48. Thread pool exhaustion → "Internal Server Error" during multi-tool-call chains
+**Symptom**: Under concurrent load (3+ simultaneous conversations), multi-tool-call chains fail with "Internal Server Error" from the Bun proxy — not a structured SSE error from FastAPI.  
+**Root cause (confirmed)**: `OpenAIResponsesProvider.stream_chat` used a sync OpenAI SDK bridged to async via `queue.Queue` + `run_in_executor` + `asyncio.to_thread(queue.get)`. This consumed 2 thread pool threads per concurrent request (one long-lived thread holding the OpenAI stream open, one per event via `to_thread`). Python's default `ThreadPoolExecutor` is `min(32, cpu_count+4)` ≈ **6 threads** in Docker on 2 CPUs. With 3+ concurrent requests the pool exhausted; subsequent tool-call rounds couldn't acquire a thread and the Bun proxy timed out with a plain-text 503.  
+**Status**: Fixed in `452426a`. `OpenAIResponsesProvider.stream_chat` rewritten to use `AsyncOpenAI` with `async for event in stream:` — 0 thread pool threads for the Responses API path. `AsyncOpenAI` + `httpx.AsyncClient` singleton added to `api/llm/responses.py`.
+
+### 49. Cron jobs fire twice (double-fire)
+**Symptom**: Any scheduled cron task appears twice in `GET /api/tasks` results after it fires. Each cron tick runs the agent task twice.  
+**Root cause (confirmed)**: Both `ray-api` (`main.py` lifespan) and `ray-worker` called `start_scheduler()` at startup. Both processes mount the same `workspace/schedules.yaml` via the same Docker volume. APScheduler in each process reads the same config and fires the same jobs independently.  
+**Status**: Fixed in `452426a`. Removed `start_scheduler()`/`stop_scheduler()` from the API lifespan. `ray-worker` is now the sole scheduler owner. The `/api/scheduler/status` endpoint and scheduler-related tools (`create_schedule`, `remove_schedule`) continue working — they read/write `schedules.yaml` directly without needing a running scheduler in the API process.
+
+### 47. Chat tool-call exceptions still leaked as generic internal errors
+**Symptom**: Narrow failures during tool-call rounds, MCP execution, or pre-stream chat setup could surface as repeated generic `Internal Server Error` bubbles with little debugging context.  
+**Root cause (confirmed)**: The chat route mixed raw exceptions, inconsistent SSE error shapes, and brittle `json.dumps(result)` calls inside the tool loop. The UI then stacked duplicate error bubbles on retries.  
+**Status**: Fixed. Chat initialisation failures and tool-call exceptions now emit sanitised structured SSE `error` events with `request_id` metadata, MCP execution is wrapped into normal tool error dicts, tool results are normalised into JSON-safe dicts before reuse, and duplicate trailing UI error bubbles are collapsed.
+
 ---
 
 ## Prioritised Fix Order
@@ -196,10 +211,13 @@ If the Ollama HTTP call failed before the `for` loop, the SSE parser would hang 
 | # | Issue | Effort | Impact | Status |
 |---|-------|--------|--------|--------|
 | 42 | Bootstrap chat/UI regressions on live stack | Medium | Blocking | Open |
+| 48 | Thread pool exhaustion → "Internal Server Error" during tool calls | Medium | **Critical** | ✅ Fixed 452426a |
+| 49 | Cron jobs fire twice (double-fire) | Small | High | ✅ Fixed 452426a |
 | 43 | Exec approval Allow path unreliable | Medium | High | ✅ Fixed |
 | 45 | Full-coverage Playwright suite drift | Medium | High | ✅ Fixed |
 | 44 | Memory search contract drift | Small | Medium | ✅ Fixed |
 | 46 | Tool/memory E2E expectations stale | Small | Medium | ✅ Fixed |
+| 47 | Generic chat tool-call internal errors | Medium | High | ✅ Fixed |
 | 1 | LLM tool call errors | — | Blocking | ✅ Fixed cc5e145 |
 | 2 | Duplicate bootstrap messages | — | Blocking | ✅ Fixed 305ccd3 |
 | 3 | Bootstrap SSE gateway timeout | — | Blocking | ✅ Fixed 0d95b1a |

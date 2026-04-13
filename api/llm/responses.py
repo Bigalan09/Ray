@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 
 from config import settings
 
@@ -11,6 +11,7 @@ from config import settings
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 
 _client: OpenAI | None = None
+_async_client: AsyncOpenAI | None = None
 
 
 def _normalise_base_url(base_url: str) -> str:
@@ -18,7 +19,7 @@ def _normalise_base_url(base_url: str) -> str:
 
 
 def _get_client() -> OpenAI:
-    """Get a shared OpenAI client for the Responses API."""
+    """Get a shared OpenAI client for the Responses API (sync, used by bootstrap finalization)."""
     global _client
     if _client is not None:
         return _client
@@ -29,6 +30,20 @@ def _get_client() -> OpenAI:
         http_client=httpx.Client(verify=settings.tls_verify),
     )
     return _client
+
+
+def _get_async_client() -> AsyncOpenAI:
+    """Get a shared AsyncOpenAI client for native async streaming (zero thread pool usage)."""
+    global _async_client
+    if _async_client is not None:
+        return _async_client
+
+    _async_client = AsyncOpenAI(
+        api_key=settings.openai_api_key,
+        base_url=_normalise_base_url(settings.openai_base_url),
+        http_client=httpx.AsyncClient(verify=settings.tls_verify),
+    )
+    return _async_client
 
 
 def _split_system_message(messages: list[dict]) -> tuple[str | None, list[dict]]:
@@ -192,8 +207,16 @@ def response_output_text(response: Any) -> str:
 
 
 async def shutdown_client():
-    """Close the cached client on app shutdown."""
+    """Close the cached sync client on app shutdown."""
     global _client
     if _client is not None:
         _client.close()
         _client = None
+
+
+async def shutdown_async_client():
+    """Close the cached async client on app shutdown."""
+    global _async_client
+    if _async_client is not None:
+        await _async_client.close()
+        _async_client = None

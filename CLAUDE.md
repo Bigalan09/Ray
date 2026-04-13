@@ -41,8 +41,9 @@ The chat endpoint (`POST /api/chat`) follows this priority:
 The React UI uses a `useChat` hook (`ui/src/hooks/useChat.ts`) that encapsulates all chat state and streaming logic:
 
 - **SSE parser** (`hooks/sse-parser.ts`): Buffered line parser handling partial TCP chunks.
-- **Event types** (`hooks/sse-events.ts`): Typed discriminated union for all SSE event shapes. `classifyEvent()` maps raw JSON → typed `SSEEvent`. Recognised kinds: `content`, `tool_status`, `citations`, `exec_confirm`, `command_result`, `error`, `timing`.
+- **Event types** (`hooks/sse-events.ts`): Typed discriminated union for all SSE event shapes. `classifyEvent()` maps raw JSON → typed `SSEEvent`. Recognised kinds: `content`, `tool_status`, `citations`, `exec_confirm`, `command_result`, `error`, `timing`. Chat `error` events now carry sanitised messages plus `request_id`, with optional `tool_name`, `round`, `provider`, and `model` metadata.
 - **Chat reducer** (`hooks/chat-reducer.ts`): State machine with phases: `idle`, `sending`, `streaming`, `committing`, `error`. Conversation selection is blocked during non-idle phases to prevent race conditions.
+- **Error rendering**: The UI shows sanitised chat-stream errors with a log/request ID suffix and collapses duplicate trailing error bubbles during retries.
 - **Platform context** (`context/PlatformContext.tsx`): Detects Electron vs browser via `navigator.userAgent`. Components use `usePlatform()` to adapt (e.g. frameless title bar in desktop mode).
 
 ### Exec approval flow

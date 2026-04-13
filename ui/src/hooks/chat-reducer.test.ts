@@ -151,6 +151,21 @@ describe("chatReducer", () => {
     expect(next.retryContext).toBeNull();
   });
 
+  test("STREAM_ERROR replaces duplicate trailing error bubble", () => {
+    const state: ChatState = {
+      ...initialChatState,
+      phase: "streaming",
+      messages: [{ role: "system", content: "Error: Request failed (log: req-123)" }],
+    };
+    const next = chatReducer(state, {
+      type: "STREAM_ERROR",
+      message: "Request failed (log: req-123)",
+      retryable: true,
+    });
+    expect(next.messages).toHaveLength(1);
+    expect(next.messages[0].content).toBe("Error: Request failed (log: req-123)");
+  });
+
   // --- COMMAND_RESULT ---
 
   test("COMMAND_RESULT appends assistant message", () => {
