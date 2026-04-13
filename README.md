@@ -230,7 +230,7 @@ Invoke with `/skill summarise <text>`.
 ## Testing
 
 ```bash
-# API unit + integration tests (148 tests, live OpenAI auto-skipped if no key)
+# API unit + integration tests (169 tests, live OpenAI auto-skipped if no key)
 cd api && .venv/bin/python -m pytest tests/ -v
 
 # E2E against local dev stack

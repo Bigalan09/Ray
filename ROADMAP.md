@@ -93,6 +93,15 @@ ray-chromadb (vector memory)
 - [x] Bootstrap reframed as general assistant (not work assistant); onboarding asks about interests/life, not job/role
 - [x] Structured chat-stream error handling (sanitised SSE errors with request IDs, duplicate UI error collapse, safer tool-result normalisation)
 
+### Concurrency & Reliability
+- [x] **AsyncOpenAI native streaming** — `OpenAIResponsesProvider` rewritten to use `AsyncOpenAI` with `async for event in stream:`. Eliminates thread pool exhaustion that caused "Internal Server Error" during concurrent multi-tool-call chains (2N threads → 0 threads per request)
+- [x] **Cron scheduling isolated to `ray-worker`** — removed `start_scheduler()` from API lifespan; `ray-worker` is the sole scheduler owner, fixing cron double-fire (every job firing twice)
+- [x] **Explicit thread pool** — `ThreadPoolExecutor(max_workers=20)` at API startup replaces the tiny default pool (~6 threads on 2 CPUs in Docker) for ChromaDB/SQLite sync work
+- [x] **LLM concurrency semaphore** — `asyncio.Semaphore(10)` in `chat.py` caps simultaneous `stream_chat()` calls; provides backpressure under load
+- [x] **Client disconnect detection** — `request.is_disconnected()` checked before each tool-call round; agent chains abort cleanly when the browser tab closes mid-chain
+- [x] **Per-round keepalive for tool chains** — `_KEEPALIVE` yielded between tool-call rounds to prevent reverse-proxy timeout on long multi-tool chains
+- [x] **Stream timeout** — `asyncio.timeout(300)` hard cap on `_do_stream()`; stalled OpenAI connections fail after 5 minutes with a structured SSE error
+
 ### Security & Infrastructure
 - [x] Auth middleware (`X-API-Key`; disabled until key generated)
 - [x] Rate limiting (Redis-backed with in-memory fallback; configurable via `.env`)
@@ -103,7 +112,7 @@ ray-chromadb (vector memory)
 - [x] One-liner installer (`install.sh`)
 
 ### Testing
-- [x] API unit + integration tests (148+ tests; live OpenAI auto-skipped without key)
+- [x] API unit + integration tests (169+ tests; live OpenAI auto-skipped without key)
 - [x] Full E2E Playwright suite (`full-coverage.spec.ts`; 100+ cases)
 - [x] Docker stack E2E config (`playwright.docker.config.ts`)
 - [x] E2E: proactive memory recall (`full-coverage.spec.ts`)
