@@ -136,5 +136,5 @@ async def factory_reset(body: FactoryResetRequest):
     except Exception:
         pass
 
-    log.info("Factory reset completed", results=results)
+    log.info("Factory reset completed: %s", results)
     return {"status": "reset_complete", "details": results}
