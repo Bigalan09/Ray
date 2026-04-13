@@ -12,6 +12,7 @@ async def list_models():
     """Return available models from all configured providers."""
     config = load_yaml("models.yaml")
     providers = config.get("providers", {})
+    default_model = config.get("default_model", "")
     models = []
 
     for _provider_name, provider in providers.items():
@@ -28,5 +29,9 @@ async def list_models():
         elif provider_type == "ollama":
             for m in provider.get("models", []):
                 models.append({"id": m["id"], "model": m.get("name", m["id"])})
+
+    # Place the configured default model first so clients pick it up naturally.
+    if default_model:
+        models.sort(key=lambda m: m["id"] != default_model)
 
     return models

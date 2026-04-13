@@ -65,5 +65,5 @@ def configure_logging() -> None:
         stream=sys.stdout,
         level=log_level,
     )
-    for noisy in ("uvicorn.access", "httpx", "chromadb", "openai"):
+    for noisy in ("uvicorn.access", "httpx", "chromadb", "openai", "posthog"):
         logging.getLogger(noisy).setLevel(logging.WARNING)

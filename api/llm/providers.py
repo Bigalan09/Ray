@@ -209,13 +209,19 @@ class OpenAIResponsesProvider(LLMProvider):
 class AzureOpenAIProvider(LLMProvider):
     """Azure OpenAI provider."""
 
-    def __init__(self, endpoint: str, api_key: str, api_version: str):
+    def __init__(self, endpoint: str, api_key: str, api_version: str,
+                 deployment_caps: dict | None = None):
         self.endpoint = endpoint.rstrip("/")
         self.api_key = api_key
         self.api_version = api_version
+        self._deployment_caps = deployment_caps or {}
 
     def build_url(self, model: str) -> str:
         return f"{self.endpoint}/openai/deployments/{model}/chat/completions?api-version={self.api_version}"
+
+    def _supports_temperature(self, model: str) -> bool:
+        caps = self._deployment_caps.get(model, {})
+        return caps.get("supports_temperature", True)
 
     async def stream_chat(
         self,
@@ -233,9 +239,10 @@ class AzureOpenAIProvider(LLMProvider):
         body: dict = {
             "messages": messages,
             "stream": True,
-            "temperature": temperature,
             "stream_options": {"include_usage": True},
         }
+        if self._supports_temperature(resolved_model):
+            body["temperature"] = temperature
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
@@ -331,10 +338,18 @@ def get_provider(provider_type: str, config: dict) -> LLMProvider:
             base_url=config.get("base_url", settings.openai_base_url),
         )
     elif provider_type == "azure_openai":
+        deployment_caps = {}
+        for dep in config.get("deployments", []):
+            dep_id = dep.get("id", "")
+            if dep_id:
+                deployment_caps[dep_id] = {
+                    "supports_temperature": dep.get("supports_temperature", True),
+                }
         return AzureOpenAIProvider(
             endpoint=config.get("endpoint", settings.azure_openai_endpoint),
             api_key=config.get("api_key", settings.azure_openai_api_key),
             api_version=config.get("api_version", settings.azure_openai_api_version),
+            deployment_caps=deployment_caps,
         )
     elif provider_type == "ollama":
         return OllamaProvider(base_url=config.get("base_url", "http://ray-ollama:11434"))

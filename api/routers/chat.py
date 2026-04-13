@@ -399,6 +399,13 @@ async def _chat_direct(
                     # Capture token usage from the completion event
                     if parsed.get("usage"):
                         round_usage = parsed["usage"]
+
+                    # Provider error events use {"error": ...} but the UI
+                    # expects {"type": "error", ...}. Yield the normalised
+                    # form and skip the raw event.
+                    if parsed.get("error") and "type" not in parsed:
+                        yield _sse_error(parsed.get("message", parsed["error"]))
+                        continue
                 except json.JSONDecodeError:
                     pass
 

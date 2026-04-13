@@ -1,6 +1,6 @@
 # Ray — Roadmap
 
-Ray is a local-first AI personal assistant. Browser-based chat UI (React/Bun) backed by a Python API (FastAPI) with the OpenAI Responses API as the primary LLM backend. Runs locally via Docker Compose.
+Ray is an AI personal assistant. Browser-based chat UI (React/Bun) backed by a Python API (FastAPI) with the OpenAI Responses API as the primary LLM backend. Runs locally via Docker Compose.
 
 ## Architecture
 
@@ -126,7 +126,7 @@ Issues reference [ISSUES.md](ISSUES.md) numbering.
 
 **OpenAI Responses API first**: Primary backend is the OpenAI Responses API (`responses.create`). Normalised into Chat Completions-style SSE chunks so the UI and agent loop are provider-agnostic. Azure OpenAI and Ollama are optional alternatives.
 
-**Local-first**: All ports bound to 127.0.0.1. No external services required beyond an OpenAI API key. State lives in `workspace/` (SQLite + ChromaDB + identity files).
+**Self-hosted**: All ports bound to 127.0.0.1. No external services required beyond an OpenAI API key. State lives in `workspace/` (SQLite + ChromaDB + identity files).
 
 **YAML config**: Models, agents, tools, schedules, identity. Portable and auditable. No database-backed settings.
 

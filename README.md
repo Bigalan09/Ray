@@ -1,6 +1,6 @@
 # Ray
 
-A local-first, privacy-respecting AI personal assistant. One agent, one browser UI. Runs entirely on your machine via Docker Compose — no data leaves without your permission.
+A privacy-respecting AI personal assistant. One agent, one browser UI. Runs entirely on your machine via Docker Compose — no data leaves without your permission.
 
 ---
 

@@ -29,6 +29,8 @@ interface InputFormProps {
   execPending?: ExecPendingState | null;
   onExecApprove?: () => void;
   onExecDeny?: () => void;
+  variant?: "default" | "floating";
+  modelLabel?: string;
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -59,6 +61,8 @@ export function InputForm({
   execPending,
   onExecApprove,
   onExecDeny,
+  variant = "default",
+  modelLabel,
 }: InputFormProps) {
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -169,9 +173,13 @@ export function InputForm({
     );
   }
 
+  const formCls = variant === "floating"
+    ? "p-3"
+    : "border-t border-[var(--border)] p-3 bg-[var(--bg-raised)]";
+
   return (
     <form
-      className="border-t border-[var(--border)] p-3 bg-[var(--bg-raised)]"
+      className={formCls}
       onSubmit={onSubmit}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
@@ -280,6 +288,12 @@ export function InputForm({
             </button>
           )}
         </div>
+
+        {modelLabel && (
+          <div className="flex justify-end mt-1">
+            <span className="text-xs text-gray-600">{modelLabel}</span>
+          </div>
+        )}
       </div>
     </form>
   );

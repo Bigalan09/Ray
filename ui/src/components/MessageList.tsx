@@ -7,12 +7,14 @@ interface MessageListProps {
   messages: Message[];
   currentResponse: string;
   streaming: boolean;
+  bootstrapping?: boolean;
   streamTools?: ToolEvent[];
   messagesEndRef: React.RefObject<HTMLDivElement>;
   containerRef?: React.RefObject<HTMLDivElement>;
   onRetry?: () => void;
   canRetry?: boolean;
   onResend?: (content: string | any) => void;
+  onRegenerate?: () => void;
 }
 
 function StatusIcon({ status }: { status: ToolEvent["status"] }) {
@@ -152,10 +154,14 @@ function MessageActions({
   role,
   content,
   onResend,
+  onRegenerate,
+  isLastAssistant,
 }: {
   role: string;
   content: string | any;
   onResend?: (content: string | any) => void;
+  onRegenerate?: () => void;
+  isLastAssistant?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -185,6 +191,18 @@ function MessageActions({
           </svg>
         )}
       </button>
+      {/* Regenerate (last assistant message only) */}
+      {role === "assistant" && isLastAssistant && onRegenerate && (
+        <button
+          onClick={onRegenerate}
+          className="p-1 text-gray-600 hover:text-gray-300 rounded transition-colors"
+          title="Regenerate"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      )}
       {/* Resend (user messages only) */}
       {role === "user" && onResend && (
         <button
@@ -229,12 +247,14 @@ export function MessageList({
   messages,
   currentResponse,
   streaming,
+  bootstrapping,
   streamTools = [],
   messagesEndRef,
   containerRef,
   onRetry,
   canRetry,
   onResend,
+  onRegenerate,
 }: MessageListProps) {
   const renderContent = (content: string | any) => {
     if (typeof content === "string") return parseMessage(content);
@@ -249,6 +269,12 @@ export function MessageList({
       </div>
     );
   };
+
+  // Find the index of the last assistant message for the regenerate button
+  let lastAssistantIdx = -1;
+  for (let j = messages.length - 1; j >= 0; j--) {
+    if (messages[j].role === "assistant") { lastAssistantIdx = j; break; }
+  }
 
   return (
     <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 bg-[var(--bg-base)] chat-messages">
@@ -298,7 +324,7 @@ export function MessageList({
                     )}
                   </div>
                 )}
-                {hasContent && <MessageActions role={msg.role} content={msg.content} onResend={onResend} />}
+                {hasContent && <MessageActions role={msg.role} content={msg.content} onResend={onResend} onRegenerate={onRegenerate} isLastAssistant={i === lastAssistantIdx} />}
               </div>
             </div>
           );
@@ -306,6 +332,9 @@ export function MessageList({
 
         {streaming && !currentResponse && streamTools.length === 0 && (
           <div className="mb-4 animate-fadeIn">
+            {bootstrapping && (
+              <div className="text-center text-sm text-gray-400 mb-3">Setting up Ray for the first time...</div>
+            )}
             <ThinkingAnimation />
           </div>
         )}

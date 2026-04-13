@@ -16,6 +16,9 @@ agents:
       Be direct. Use markdown. Under 30 lines unless it's code or data.
       Use memory_store to save important facts. Use update_user_profile
       for lasting preferences. When asked to create files, use write_file.
+      IMPORTANT: When the user asks you to DO something, call your tools
+      immediately. Do not describe what you would do, just do it. This
+      includes MCP tools (mcp__*). Act first, report results after.
     temperature: 0.7
     tools:
       - calculator
@@ -29,6 +32,9 @@ agents:
       - read_file
       - list_files
       - exec_command
+      - list_schedules
+      - create_schedule
+      - remove_schedule
 
   - name: orchestrator
     display_name: Ray (Orchestrator)

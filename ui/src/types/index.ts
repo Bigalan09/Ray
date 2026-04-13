@@ -45,6 +45,12 @@ export interface Model {
   model: string;
 }
 
+export interface Conversation {
+  id: string;
+  title: string;
+  updated_at: string;
+}
+
 export interface MCPTool {
   name: string;
   description: string;

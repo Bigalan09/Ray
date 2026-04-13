@@ -19,7 +19,13 @@ _MAX_RESTART_ATTEMPTS = 3
 
 
 def _load_mcp_config() -> list[dict]:
-    """Load MCP server configuration from workspace/mcp_servers.json."""
+    """Load MCP server configuration from workspace/mcp_servers.json.
+
+    Supports the standard mcpServers dict format (key = server name):
+        {"mcpServers": {"fs": {"command": "npx", "args": [...]}}}
+    Also accepts the legacy servers array format for backwards compatibility:
+        {"servers": [{"name": "fs", "command": "npx", "args": [...]}]}
+    """
     config_path = settings.data_dir / "mcp_servers.json"
     if not config_path.exists():
         config_path = settings.config_dir / "mcp_servers.json"
@@ -29,16 +35,31 @@ def _load_mcp_config() -> list[dict]:
     import json
     with open(config_path) as f:
         data = json.load(f)
+
+    # Standard dict format
+    if "mcpServers" in data:
+        servers = []
+        for name, cfg in data["mcpServers"].items():
+            entry = dict(cfg)
+            entry["name"] = name
+            servers.append(entry)
+        return servers
+
+    # Legacy array format
     return data.get("servers", [])
 
 
 def _save_mcp_config(servers: list[dict]) -> None:
-    """Persist server list to workspace/mcp_servers.json."""
+    """Persist servers to workspace/mcp_servers.json in mcpServers dict format."""
     import json
     config_path = settings.data_dir / "mcp_servers.json"
     config_path.parent.mkdir(parents=True, exist_ok=True)
+    mcp_servers = {}
+    for s in servers:
+        entry = {k: v for k, v in s.items() if k != "name"}
+        mcp_servers[s["name"]] = entry
     with open(config_path, "w") as f:
-        json.dump({"servers": servers}, f, indent=2)
+        json.dump({"mcpServers": mcp_servers}, f, indent=2)
 
 
 async def add_mcp_server(server_def: dict) -> dict:

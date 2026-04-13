@@ -117,57 +117,67 @@ export function ConversationList({
       style={isMobileOverlay ? { width: 256, minWidth: 256 } : { width: collapsed ? 48 : 256, minWidth: collapsed ? 48 : 256 }}
     >
       {/* Navigation buttons */}
-      <div className={`pt-3 pb-1 flex flex-col gap-0.5 ${collapsed ? "px-1" : "px-3"}`}>
+      <div className={`pt-3 pb-1 flex flex-col ${collapsed ? "px-1" : "px-3"}`}>
         <NavButton
           onClick={onNew}
           icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>}
           label="New session"
           collapsed={collapsed}
         />
-        <NavButton
-          onClick={onShowTasks}
-          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-          label="Tasks"
-          collapsed={collapsed}
-          badge={taskAlertCount}
-        />
-        <NavButton
-          onClick={onShowSchedules}
-          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
-          label="Scheduled"
-          collapsed={collapsed}
-        />
-        <NavButton
-          onClick={onShowMCP}
-          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
-          label="MCP Servers"
-          collapsed={collapsed}
-        />
-        <NavButton
-          onClick={onShowHooks}
-          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>}
-          label="Webhooks"
-          collapsed={collapsed}
-        />
-        <NavButton
-          onClick={onShowMemory}
-          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" /></svg>}
-          label="Memory"
-          collapsed={collapsed}
-        />
-        <NavButton
-          onClick={onShowSkills}
-          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>}
-          label="Skills"
-          collapsed={collapsed}
-        />
-        <NavButton
-          onClick={onShowSettings}
-          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
-          label="Settings"
-          collapsed={collapsed}
-        />
+
+        {!collapsed && <div className="mt-3 mb-0.5 px-2 text-[10px] uppercase tracking-wider text-gray-600 font-medium">Tools</div>}
+        <div className="flex flex-col gap-0.5">
+          <NavButton
+            onClick={onShowTasks}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+            label="Tasks"
+            collapsed={collapsed}
+            badge={taskAlertCount}
+          />
+          <NavButton
+            onClick={onShowSchedules}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+            label="Scheduled"
+            collapsed={collapsed}
+          />
+          <NavButton
+            onClick={onShowMCP}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+            label="MCP Servers"
+            collapsed={collapsed}
+          />
+          <NavButton
+            onClick={onShowHooks}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>}
+            label="Webhooks"
+            collapsed={collapsed}
+          />
+        </div>
+
+        {!collapsed && <div className="mt-3 mb-0.5 px-2 text-[10px] uppercase tracking-wider text-gray-600 font-medium">Configure</div>}
+        <div className="flex flex-col gap-0.5">
+          <NavButton
+            onClick={onShowMemory}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" /></svg>}
+            label="Memory"
+            collapsed={collapsed}
+          />
+          <NavButton
+            onClick={onShowSkills}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>}
+            label="Skills"
+            collapsed={collapsed}
+          />
+          <NavButton
+            onClick={onShowSettings}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
+            label="Settings"
+            collapsed={collapsed}
+          />
+        </div>
       </div>
+
+      {!collapsed && <div className="mx-3 my-1 border-t border-[var(--border)]" />}
 
       {/* Session list (hidden when collapsed) */}
       {!collapsed && (
@@ -259,24 +269,31 @@ export function ConversationList({
             })}
           </div>
 
-          {/* Clear all sessions */}
-          {(conversations.length > 0 || taskConversations.length > 0) && (
-            <div className="px-3 py-2 border-t border-[var(--border)]">
+          {/* User footer */}
+          <div className="px-3 py-2.5 border-t border-[var(--border)] flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-[var(--bg-surface)] flex items-center justify-center text-xs text-gray-400 font-semibold flex-shrink-0">
+              A
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-gray-300 truncate">Alan</div>
+              <div className="text-[11px] text-gray-600 truncate">Wealthify</div>
+            </div>
+            {(conversations.length > 0 || taskConversations.length > 0) && (
               <button
                 onClick={() => {
                   if (window.confirm("Delete all sessions? This cannot be undone.")) {
                     onDeleteAll();
                   }
                 }}
-                className="flex items-center gap-2 px-2 py-1.5 text-xs text-gray-500 hover:text-red-400 hover:bg-[var(--bg-surface)] rounded-lg transition-colors w-full"
+                className="text-gray-600 hover:text-red-400 transition-colors p-1 rounded flex-shrink-0"
+                title="Clear all sessions"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                Clear all sessions
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </>
       )}
     </div>

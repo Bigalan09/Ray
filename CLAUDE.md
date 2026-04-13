@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is Ray
 
-Ray is a local AI personal work assistant. Browser-based chat UI (React/Bun) backed by a Python API (FastAPI) with the OpenAI Responses API as the primary LLM backend, optional legacy Azure/Ollama providers, slash commands, background tasks, cron scheduling, persistent memory, MCP tool integration, and identity files (SOUL.md/USER.md). Runs via Docker Compose on localhost.
+Ray is a local AI personal work assistant. Browser-based chat UI (React/Bun) backed by a Python API (FastAPI) with Azure OpenAI and OpenAI Responses API as LLM backends, optional Ollama provider, slash commands, background tasks, cron scheduling, persistent memory, MCP tool integration, and identity files (SOUL.md/USER.md). Runs via Docker Compose on localhost. Also runs as an Electron desktop app loading the same UI.
 
 ## Architecture
 
@@ -33,6 +33,15 @@ Five Docker services: `ray-ui`, `ray-api`, `ray-worker`, `ray-redis`, `ray-chrom
 The chat endpoint (`POST /api/chat`) follows this priority:
 1. **Slash commands**: If the message starts with `/`, execute the command server-side (no LLM call).
 2. **Direct streaming with local agent routing**: Ray always builds a system prompt locally, passes built-in and MCP tools as function definitions, and runs an agent loop that executes tool calls and feeds results back to the model for up to 10 rounds.
+
+## UI Architecture
+
+The React UI uses a `useChat` hook (`ui/src/hooks/useChat.ts`) that encapsulates all chat state and streaming logic:
+
+- **SSE parser** (`hooks/sse-parser.ts`): Buffered line parser handling partial TCP chunks.
+- **Event types** (`hooks/sse-events.ts`): Typed discriminated union for all SSE event shapes with a `classifyEvent` classifier.
+- **Chat reducer** (`hooks/chat-reducer.ts`): State machine with phases: `idle`, `sending`, `streaming`, `committing`, `error`. Conversation selection is blocked during non-idle phases to prevent race conditions.
+- **Platform context** (`context/PlatformContext.tsx`): Detects Electron vs browser via `navigator.userAgent`. Components use `usePlatform()` to adapt (e.g. frameless title bar in desktop mode).
 
 ## Build and Run
 
@@ -86,14 +95,15 @@ YAML in `config/`:
 - `tools.yaml` -- Tool definitions
 - `skills.yaml` -- Saved prompt templates for `/skill` command
 - `schedules.yaml` -- Cron-scheduled agent tasks
+- `instructions.yaml` -- Custom global system instructions (injected into every LLM call)
 - `SOUL.md` -- Ray's personality and principles
 - `USER.md` -- User profile and preferences (formerly ME.md)
 - `BOOTSTRAP.md` -- First-run onboarding template
 
-The default OpenAI model is set in `config/models.yaml`. The current repo default is `gpt-5-nano`.
+The default model is set in `config/models.yaml` via `default_model`. The current repo default is `gpt-5-mini` (Azure OpenAI). Model selection is config-only; there is no UI dropdown.
 
 Workspace/runtime:
-- `workspace/mcp_servers.json` -- MCP server configuration
+- `workspace/mcp_servers.json` -- MCP server configuration (standard `mcpServers` dict format)
 - `workspace/IDENTITY.md` -- Ray's self-identity (created during bootstrap)
 - `workspace/MEMORY.md` -- Curated memory
 - `workspace/api_key` -- Generated API key when auth is enabled
@@ -201,6 +211,8 @@ Backend: `api/hooks/engine.py` (core dispatcher), `api/hooks/models.py`, `api/ho
 - `api/tasks/` -- Background task store, runner, scheduler
 - `api/security/` -- Auth, rate limiting, audit
 - `ui/src/components/` -- React components (including CommandAutocomplete)
+- `ui/src/hooks/` -- useChat hook, SSE parser, chat state machine, event types
+- `ui/src/context/` -- PlatformContext (desktop vs web detection)
 - `config/` -- YAML app configuration
 - `workspace/` -- Runtime state, identity, API key, MCP config, databases
 - `workspace-template/` -- Seed workspace files
