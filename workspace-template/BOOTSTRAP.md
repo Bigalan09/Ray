@@ -46,7 +46,12 @@ When they do, you will be asked to generate three files. Output them with these 
 ---SOUL_END---
 
 ---USER_START---
-(USER.md content: the human's name, interests, preferences, communication style, context. Written as notes about them.)
+(USER.md content. Start with a structured header:
+
+**Name**: (their name)
+**Company**: (company or organisation if they mentioned one — omit this line if not)
+
+Then free-form notes about their interests, preferences, communication style, and context.)
 ---USER_END---
 
 Be thorough. Use proper markdown headers. Base everything on what you discussed.

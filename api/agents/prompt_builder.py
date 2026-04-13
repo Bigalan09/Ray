@@ -115,15 +115,6 @@ def build_system_prompt(
                 + "\n\n".join(doc_snippets)
             )
 
-    # --- Custom global instructions (config/instructions.yaml) ---
-    try:
-        instr = load_yaml("instructions.yaml")
-        custom = instr.get("instructions", "").strip()
-        if custom:
-            sections.append(f"## Instructions\n\n{custom}")
-    except Exception:
-        log.debug("Failed to load instructions.yaml", exc_info=True)
-
     # --- Agent-specific prompt ---
     if agent_prompt:
         sections.append(agent_prompt.strip())
@@ -138,6 +129,17 @@ def build_system_prompt(
 
     # --- Runtime ---
     sections.append(_runtime_section(agent_name, model))
+
+    # --- Custom global instructions (config/instructions.yaml) ---
+    # Placed last so style/behaviour rules are the most recent context and
+    # are not diluted by the long capabilities section above.
+    try:
+        instr = load_yaml("instructions.yaml")
+        custom = instr.get("instructions", "").strip()
+        if custom:
+            sections.append(f"## Instructions\n\n{custom}")
+    except Exception:
+        log.debug("Failed to load instructions.yaml", exc_info=True)
 
     return "\n\n---\n\n".join(s for s in sections if s)
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -51,6 +53,39 @@ async def get_identity():
 async def update_identity(req: IdentityUpdate):
     _write_file("IDENTITY.md", req.content)
     return {"success": True}
+
+
+def _extract_md_field(content: str, field: str) -> str | None:
+    """Extract a named field from freeform USER.md markdown.
+
+    Matches lines like:
+        Name: Alan
+        **Name**: Alan
+        **Name:** Alan
+        - Name: Alan
+    """
+    pattern = rf'(?:^|\n)\s*[-*]?\s*\**{re.escape(field)}\**:?\s*\**\s*([^\n]+)'
+    m = re.search(pattern, content, re.IGNORECASE)
+    if m:
+        val = m.group(1).strip().strip("*").strip()
+        if val and val not in ("-", "—"):
+            return val
+    return None
+
+
+@router.get("/identity/user-info")
+async def get_user_info():
+    """Return structured name/company parsed from USER.md.
+
+    Returns null fields when USER.md is absent or does not contain the field.
+    """
+    content = load_workspace_file("USER.md") or load_workspace_file("ME.md")
+    if not content or len(content) < 20:
+        return {"name": None, "company": None}
+    return {
+        "name": _extract_md_field(content, "Name"),
+        "company": _extract_md_field(content, "Company") or _extract_md_field(content, "Organisation") or _extract_md_field(content, "Organization"),
+    }
 
 
 @router.get("/identity/bootstrap-status")
