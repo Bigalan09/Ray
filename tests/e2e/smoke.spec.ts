@@ -59,10 +59,10 @@ test.describe("Ray UI smoke tests", () => {
     await page.goto("/");
     await expect(page.locator("text=New session")).toBeVisible();
     // Toggle via hamburger in header
-    const hamburger = page.locator("button[title='Hide sidebar']");
+    const hamburger = page.locator("button[title*='Hide sidebar']");
     await hamburger.click();
     // After animation, the show sidebar button should appear
-    await expect(page.locator("button[title='Show sidebar']")).toBeVisible({ timeout: 1000 });
+    await expect(page.locator("button[title*='Show sidebar']")).toBeVisible({ timeout: 1000 });
   });
 
   test("tasks panel opens from sidebar", async ({ page }) => {

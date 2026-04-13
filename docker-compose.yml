@@ -38,6 +38,8 @@ services:
 
   ray-chromadb:
     image: chromadb/chroma:latest
+    environment:
+      - ANONYMIZED_TELEMETRY=False
     volumes:
       - chroma-data:/chroma/chroma
     networks:

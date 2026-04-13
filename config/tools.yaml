@@ -199,3 +199,52 @@ tools:
       required:
         - command
     enabled: true
+
+  - name: list_schedules
+    description: >
+      List all scheduled tasks with their names and next run times.
+      Use this to check what recurring tasks are configured.
+    parameters:
+      type: object
+      properties: {}
+    enabled: true
+
+  - name: create_schedule
+    description: >
+      Create a new scheduled task that runs on a cron schedule. The task
+      will execute the given prompt as a background agent task at the
+      specified times. Cron format: minute hour day-of-month month day-of-week.
+    parameters:
+      type: object
+      properties:
+        name:
+          type: string
+          description: "Short snake_case name for the schedule (e.g. daily_summary)"
+        cron:
+          type: string
+          description: "5-field cron expression (e.g. '0 8 * * 1-5' for weekdays at 8am)"
+        prompt:
+          type: string
+          description: "The prompt to run on each execution"
+        agent:
+          type: string
+          description: "Agent to use (default: general)"
+      required:
+        - name
+        - cron
+        - prompt
+    enabled: true
+
+  - name: remove_schedule
+    description: >
+      Remove a scheduled task by name. Use list_schedules first to see
+      available schedule names.
+    parameters:
+      type: object
+      properties:
+        name:
+          type: string
+          description: "Name of the schedule to remove"
+      required:
+        - name
+    enabled: true

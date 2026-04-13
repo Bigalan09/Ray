@@ -9,9 +9,9 @@ from commands.registry import register_command
 async def _help(args_str: str, context: dict) -> dict:
     from commands.registry import list_commands
     cmds = list_commands()
-    lines = ["**Available commands:**", ""]
+    lines = ["**Available commands:**\n"]
     for cmd in cmds:
-        lines.append(f"  `{cmd['usage']}`  {cmd['description']}")
+        lines.append(f"- `{cmd['usage']}` — {cmd['description']}")
     return {"content": "\n".join(lines)}
 
 
@@ -57,15 +57,15 @@ async def _status(args_str: str, context: dict) -> dict:
     jobs = get_scheduled_jobs()
     tasks = list_tasks(limit=5)
 
-    lines = ["**System status:**", ""]
-    lines.append(f"MCP servers: {len(mcp)} configured")
+    lines = ["**System status:**\n"]
+    lines.append(f"- MCP servers: {len(mcp)} configured")
     running = sum(1 for s in mcp if s.get("running"))
     if running:
-        lines.append(f"  {running} running")
-    lines.append(f"Scheduled jobs: {len(jobs)}")
-    lines.append(f"Recent tasks: {len(tasks)}")
+        lines.append(f"  - {running} running")
+    lines.append(f"- Scheduled jobs: {len(jobs)}")
+    lines.append(f"- Recent tasks: {len(tasks)}")
     for t in tasks[:3]:
-        lines.append(f"  [{t['status']}] {t['prompt'][:60]}")
+        lines.append(f"  - [{t['status']}] {t['prompt'][:60]}")
     return {"content": "\n".join(lines)}
 
 
@@ -77,11 +77,16 @@ async def _tool(args_str: str, context: dict) -> dict:
     if not args_str or args_str.strip().lower() == "list":
         tools_config = load_yaml("tools.yaml")
         tools_list = tools_config.get("tools", [])
-        lines = ["**Available tools:**", ""]
+        lines = ["**Available tools:**\n"]
         for t in tools_list:
             enabled = t.get("enabled", True)
-            marker = "" if enabled else " (disabled)"
-            lines.append(f"  `{t['name']}`  {t.get('description', '')[:80]}{marker}")
+            marker = " *(disabled)*" if not enabled else ""
+            desc = t.get("description", "").strip()
+            # First sentence only
+            dot = desc.find(". ")
+            if dot != -1:
+                desc = desc[:dot + 1]
+            lines.append(f"- `{t['name']}` — {desc}{marker}")
         return {"content": "\n".join(lines)}
 
     parts = args_str.strip().split(None, 1)
@@ -112,9 +117,9 @@ async def _task(args_str: str, context: dict) -> dict:
         tasks = list_tasks(limit=10)
         if not tasks:
             return {"content": "No tasks found."}
-        lines = ["**Recent tasks:**", ""]
+        lines = ["**Recent tasks:**\n"]
         for t in tasks:
-            lines.append(f"  `{t['id'][:8]}` [{t['status']}] {t['prompt'][:60]}")
+            lines.append(f"- `{t['id'][:8]}` [{t['status']}] {t['prompt'][:60]}")
         return {"content": "\n".join(lines)}
 
     if args.lower().startswith("status"):
@@ -237,9 +242,9 @@ async def _schedule(args_str: str, context: dict) -> dict:
         jobs = get_scheduled_jobs()
         if not jobs:
             return {"content": "No scheduled tasks. Use `/schedule <cron> <prompt>` to create one."}
-        lines = ["**Scheduled tasks:**", ""]
+        lines = ["**Scheduled tasks:**\n"]
         for j in jobs:
-            lines.append(f"  `{j['name']}`  next: {j.get('next_run', 'unknown')}")
+            lines.append(f"- `{j['name']}` — next: {j.get('next_run', 'unknown')}")
         return {"content": "\n".join(lines)}
 
     if args.lower().startswith("remove "):
@@ -294,12 +299,10 @@ async def _agent(args_str: str, context: dict) -> dict:
 
     if not args or args == "list":
         agents = get_agent_for_display()
-        lines = ["**Available agents:**", ""]
+        lines = ["**Available agents:**\n"]
         for a in agents:
-            desc = f"  `{a['name']}`  {a.get('description', '')}"
-            lines.append(desc)
-        lines.append("")
-        lines.append("Use `/agent <name>` to switch.")
+            lines.append(f"- `{a['name']}` — {a.get('description', '')}")
+        lines.append("\nUse `/agent <name>` to switch.")
         return {"content": "\n".join(lines)}
 
     agents = get_agent_for_display()

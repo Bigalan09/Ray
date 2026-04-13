@@ -1,43 +1,25 @@
 import React from "react";
-
-function RayIcon({ className = "w-5 h-5" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="ray-amber" x1="320" y1="250" x2="710" y2="650" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FFC83A"/>
-          <stop offset="55%" stopColor="#FFA216"/>
-          <stop offset="100%" stopColor="#F26A0A"/>
-        </linearGradient>
-      </defs>
-      <path d="M336 256H585C687 256 760 317 760 408C760 476 720 528 648 552L735 688H627L554 578H438V688H336V256ZM438 344V492H574C633 492 658 454 658 418C658 375 626 344 570 344H438Z" fill="url(#ray-amber)"/>
-      <path d="M714 235L741 184C746 174 759 170 768 176C777 182 779 194 772 203L734 245L714 235Z" fill="#F2B705"/>
-      <path d="M757 275L815 264C826 262 834 269 835 279C836 290 829 298 818 299L758 294L757 275Z" fill="#F2B705"/>
-    </svg>
-  );
-}
-
-interface Model {
-  id: string;
-  model: string;
-}
+import { RayIcon } from "./RayIcon";
+import { usePlatform } from "../context/PlatformContext";
 
 interface HeaderProps {
   sidebarVisible: boolean;
   onToggleSidebar: () => void;
-  models?: Model[];
-  selectedModel?: string;
-  onModelChange?: (modelId: string) => void;
 }
 
-export function Header({ sidebarVisible, onToggleSidebar, models = [], selectedModel, onModelChange }: HeaderProps) {
+export function Header({ sidebarVisible, onToggleSidebar }: HeaderProps) {
+  const { isDesktop } = usePlatform();
+
   return (
-    <div className="h-[44px] border-b border-[var(--border)] flex items-center px-3 bg-[var(--bg-raised)] gap-3" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
+    <div
+      className="h-[44px] border-b border-[var(--border)] flex items-center px-3 bg-[var(--bg-raised)] gap-3"
+      style={isDesktop ? { WebkitAppRegion: "drag" } as React.CSSProperties : undefined}
+    >
       <button
         onClick={onToggleSidebar}
         className="text-gray-400 hover:text-white p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-colors"
-        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-        title={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
+        style={isDesktop ? { WebkitAppRegion: "no-drag" } as React.CSSProperties : undefined}
+        title={sidebarVisible ? "Hide sidebar (Ctrl+.)" : "Show sidebar (Ctrl+.)"}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -46,20 +28,20 @@ export function Header({ sidebarVisible, onToggleSidebar, models = [], selectedM
       <RayIcon className="w-5 h-5" />
       <span className="text-sm font-semibold text-white tracking-tight">Ray</span>
 
-      {models.length > 1 && onModelChange && (
-        <div className="ml-auto" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-          <select
-            value={selectedModel}
-            onChange={(e) => onModelChange(e.target.value)}
-            className="text-xs bg-[var(--bg-surface)] border border-[var(--border)] text-gray-300 rounded-lg px-2 py-1 hover:border-gray-500 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
-            title="Switch model"
-          >
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>{m.model}</option>
-            ))}
-          </select>
-        </div>
-      )}
+      <div
+        className="ml-auto flex items-center gap-1"
+        style={isDesktop ? { WebkitAppRegion: "no-drag", marginRight: 140 } as React.CSSProperties : undefined}
+      >
+        <button
+          onClick={() => window.location.reload()}
+          className="text-gray-400 hover:text-white hover:bg-[var(--bg-hover)] transition-colors p-2 rounded-lg"
+          title="Refresh (Ctrl+R)"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115.36-5.36M20 15a9 9 0 01-15.36 5.36" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }

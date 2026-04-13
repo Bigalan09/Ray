@@ -1,133 +1,222 @@
 {
-  "title": "Ray Observability",
+  "title": "Ray",
   "uid": "ray-main",
-  "version": 1,
+  "version": 2,
   "schemaVersion": 39,
   "refresh": "10s",
   "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "model",
+        "type": "custom",
+        "current": { "text": "All", "value": "" },
+        "options": [
+          { "text": "All", "value": "", "selected": true },
+          { "text": "gpt-5-mini", "value": "gpt-5-mini", "selected": false },
+          { "text": "gpt-5-nano", "value": "gpt-5-nano", "selected": false }
+        ],
+        "query": "gpt-5-mini,gpt-5-nano",
+        "includeAll": true,
+        "allValue": ""
+      }
+    ]
+  },
   "panels": [
     {
       "id": 1,
-      "title": "HTTP Requests / min",
-      "type": "timeseries",
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        {
-          "expr": "rate(ray_http_requests_total[1m]) * 60",
-          "legendFormat": "{{method}} {{path}} {{status}}"
-        }
-      ]
+      "title": "",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
     },
     {
       "id": 2,
-      "title": "HTTP p95 Latency (ms)",
-      "type": "timeseries",
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "title": "LLM Calls",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, rate(ray_http_request_duration_seconds_bucket[5m])) * 1000",
-          "legendFormat": "p95 {{path}}"
+          "expr": "sum(increase(ray_llm_requests_total[$__range]))",
+          "legendFormat": "calls"
         }
       ]
     },
     {
       "id": 3,
-      "title": "LLM Requests / min",
-      "type": "timeseries",
-      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "title": "Tokens Used",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
       "targets": [
         {
-          "expr": "rate(ray_llm_requests_total[1m]) * 60",
-          "legendFormat": "{{model}} — {{finish_reason}}"
+          "expr": "sum(increase(ray_llm_tokens_total[$__range]))",
+          "legendFormat": "tokens"
         }
       ]
     },
     {
       "id": 4,
-      "title": "LLM Tokens / min",
-      "type": "timeseries",
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 6 },
+      "title": "Avg Latency",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "yellow" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "yellow", "value": null }] },
+          "unit": "s"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false },
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
       "targets": [
         {
-          "expr": "rate(ray_llm_tokens_total[1m]) * 60",
-          "legendFormat": "{{type}} — {{model}}"
+          "expr": "sum(rate(ray_llm_request_duration_seconds_sum[5m])) / sum(rate(ray_llm_request_duration_seconds_count[5m]))",
+          "legendFormat": "avg"
         }
       ]
     },
     {
       "id": 5,
-      "title": "LLM p95 Latency (ms)",
-      "type": "timeseries",
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 6 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, rate(ray_llm_request_duration_seconds_bucket[5m])) * 1000",
-          "legendFormat": "p95 {{model}}"
+      "title": "Errors",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "dark-green" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "dark-green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
         }
-      ]
-    },
-    {
-      "id": 6,
-      "title": "LLM Retries / min",
-      "type": "timeseries",
-      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 6 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
       "targets": [
         {
-          "expr": "rate(ray_llm_retries_total[1m]) * 60",
-          "legendFormat": "{{model}} status={{status}}"
-        }
-      ]
-    },
-    {
-      "id": 7,
-      "title": "Tool Calls / min",
-      "type": "timeseries",
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 12 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        {
-          "expr": "rate(ray_tool_calls_total[1m]) * 60",
-          "legendFormat": "{{tool}} — {{status}}"
-        }
-      ]
-    },
-    {
-      "id": 8,
-      "title": "Tool p95 Latency (ms)",
-      "type": "timeseries",
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 12 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, rate(ray_tool_call_duration_seconds_bucket[5m])) * 1000",
-          "legendFormat": "p95 {{tool}}"
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "title": "Chat Requests / min",
-      "type": "timeseries",
-      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 12 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        {
-          "expr": "rate(ray_chat_requests_total[1m]) * 60",
-          "legendFormat": "{{agent}}"
+          "expr": "sum(count_over_time({service=~\"ray-api|ray-worker\"} | json | level = \"error\" [$__range]))",
+          "legendFormat": "errors"
         }
       ]
     },
     {
       "id": 10,
-      "title": "LLM Request Logs",
+      "title": "",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 11,
+      "title": "Token Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 40,
+            "stacking": { "mode": "normal" },
+            "lineWidth": 0,
+            "pointSize": 5
+          },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "increase(ray_llm_tokens_total{type=\"prompt\"}[5m])",
+          "legendFormat": "prompt ({{model}})"
+        },
+        {
+          "expr": "increase(ray_llm_tokens_total{type=\"completion\"}[5m])",
+          "legendFormat": "completion ({{model}})"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Response Time",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "points",
+            "pointSize": 8,
+            "fillOpacity": 0
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "s"
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(ray_llm_request_duration_seconds_sum[1m])) by (model) / sum(rate(ray_llm_request_duration_seconds_count[1m])) by (model)",
+          "legendFormat": "{{model}}"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "LLM Requests & Responses",
       "type": "logs",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 18 },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 13 },
       "datasource": { "type": "loki", "uid": "loki" },
       "options": {
         "showTime": true,
@@ -141,20 +230,21 @@
       },
       "targets": [
         {
-          "expr": "{service=~\"ray-api|ray-worker\"} | json | event =~ \"llm_request|llm_response|llm_retry\"",
+          "expr": "{service=~\"ray-api|ray-worker\"} | json | event =~ \"llm_request|llm_response|llm_retry\" | line_format \"{{if eq .event \\\"llm_request\\\"}}\\u27a1\\ufe0f REQUEST{{else if eq .event \\\"llm_response\\\"}}\\u2705 RESPONSE{{else}}\\u26a0\\ufe0f RETRY{{end}}  model={{.model}}  agent={{.agent}}  {{if .prompt_tokens}}tokens={{.prompt_tokens}}+{{.completion_tokens}}  {{end}}{{if .duration_ms}}time={{.duration_ms}}ms  {{end}}{{if .finish_reason}}finish={{.finish_reason}}  {{end}}{{if .error}}ERROR={{.error}}{{end}}\"",
           "legendFormat": ""
         }
       ]
     },
     {
-      "id": 11,
-      "title": "Tool Call Logs",
+      "id": 21,
+      "title": "Tool Calls",
       "type": "logs",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 25 },
       "datasource": { "type": "loki", "uid": "loki" },
       "options": {
         "showTime": true,
         "showLabels": false,
+        "showCommonLabels": false,
         "wrapLogMessage": true,
         "prettifyLogMessage": true,
         "enableLogDetails": true,
@@ -163,20 +253,21 @@
       },
       "targets": [
         {
-          "expr": "{service=~\"ray-api|ray-worker\"} | json | event = \"tool_call\"",
+          "expr": "{service=~\"ray-api|ray-worker\"} | json | event = \"tool_call\" | line_format \"\\ud83d\\udee0\\ufe0f {{.tool}}  status={{.status}}  time={{.duration_ms}}ms  {{if .error}}ERROR={{.error}}{{end}}  args={{.args}}\"",
           "legendFormat": ""
         }
       ]
     },
     {
-      "id": 12,
-      "title": "Error Logs",
+      "id": 22,
+      "title": "Errors & Warnings",
       "type": "logs",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 36 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 33 },
       "datasource": { "type": "loki", "uid": "loki" },
       "options": {
         "showTime": true,
         "showLabels": true,
+        "showCommonLabels": false,
         "wrapLogMessage": true,
         "prettifyLogMessage": true,
         "enableLogDetails": true,
@@ -185,7 +276,7 @@
       },
       "targets": [
         {
-          "expr": "{service=~\"ray-api|ray-worker\"} | json | level = \"error\" or level = \"warning\"",
+          "expr": "{service=~\"ray-api|ray-worker\"} | json | level =~ \"error|warning\" | line_format \"{{if eq .level \\\"error\\\"}}\\u274c{{else}}\\u26a0\\ufe0f{{end}} [{{.level}}] {{.event}}  {{if .model}}model={{.model}}  {{end}}{{if .error}}{{.error}}{{end}}{{if .message}}{{.message}}{{end}}\"",
           "legendFormat": ""
         }
       ]

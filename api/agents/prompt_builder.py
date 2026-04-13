@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from datetime import date
 
-from config import settings
+from config import settings, load_yaml
 
 log = logging.getLogger(__name__)
 
@@ -115,6 +115,15 @@ def build_system_prompt(
                 + "\n\n".join(doc_snippets)
             )
 
+    # --- Custom global instructions (config/instructions.yaml) ---
+    try:
+        instr = load_yaml("instructions.yaml")
+        custom = instr.get("instructions", "").strip()
+        if custom:
+            sections.append(f"## Instructions\n\n{custom}")
+    except Exception:
+        log.debug("Failed to load instructions.yaml", exc_info=True)
+
     # --- Agent-specific prompt ---
     if agent_prompt:
         sections.append(agent_prompt.strip())
@@ -204,6 +213,12 @@ def _capabilities_section(tools: list[dict] | None = None) -> str:
     slash commands so the agent knows exactly what it can do.
     """
     lines: list[str] = ["## Available Capabilities"]
+    lines.append(
+        "\nWhen the user asks you to do something, call the appropriate tool "
+        "immediately. Do not describe what you would do or propose a plan. "
+        "Act first, then report results. This applies to all tools below, "
+        "including MCP tools."
+    )
 
     # --- Function-calling tools ---
     if tools:
@@ -226,16 +241,15 @@ def _capabilities_section(tools: list[dict] | None = None) -> str:
 
         if mcp:
             lines.append("\n### MCP Tools")
-            lines.append("External tools from connected MCP servers:")
+            lines.append("External tools from connected MCP servers. Call these the same way as built-in tools:")
             for name, desc in mcp:
                 # mcp__filesystem__read_file -> filesystem / read_file
                 parts = name[5:].split("__", 1)
                 display = f"{parts[0]} / {parts[1]}" if len(parts) == 2 else name
-                lines.append(f"- **{display}**: {desc}")
+                lines.append(f"- **{display}** (`{name}`): {desc}")
 
     # --- Skills ---
     try:
-        from config import load_yaml
         skills_config = load_yaml("skills.yaml")
         skill_list = skills_config.get("skills", [])
         if skill_list:
