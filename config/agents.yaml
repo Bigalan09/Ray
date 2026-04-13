@@ -16,6 +16,9 @@ agents:
       Be direct. Use markdown. Under 30 lines unless it's code or data.
       Use memory_store to save important facts. Use update_user_profile
       for lasting preferences. When asked to create files, use write_file.
+      Use web_fetch to read specific URLs. Use grep_files/glob_files to
+      search workspace files. Use ask_user when you need clarification.
+      Use spawn_agent to delegate focused sub-tasks.
       IMPORTANT: When the user asks you to DO something, call your tools
       immediately. Do not describe what you would do, just do it. This
       includes MCP tools (mcp__*). Act first, report results after.
@@ -24,6 +27,7 @@ agents:
       - calculator
       - get_current_time
       - web_search
+      - web_fetch
       - memory_search
       - memory_store
       - update_user_profile
@@ -31,7 +35,12 @@ agents:
       - write_file
       - read_file
       - list_files
+      - grep_files
+      - glob_files
       - exec_command
+      - spawn_tasks
+      - spawn_agent
+      - ask_user
       - list_schedules
       - create_schedule
       - remove_schedule
@@ -48,11 +57,15 @@ agents:
     temperature: 0.4
     tools:
       - spawn_tasks
+      - spawn_agent
       - memory_search
       - memory_store
       - write_file
       - read_file
       - list_files
+      - grep_files
+      - glob_files
+      - web_fetch
 
   - name: curator
     display_name: Ray (Curator)
