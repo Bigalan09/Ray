@@ -12,10 +12,12 @@ from commands.exec_guardrails import validate_and_create_pending, get_allowed_co
 
 # Ray tool names that the model must never pass to exec_command as shell commands.
 _RAY_TOOL_NAMES = {
-    "spawn_tasks", "web_search", "calculator", "get_current_time",
+    "spawn_tasks", "spawn_agent", "web_search", "web_fetch",
+    "calculator", "get_current_time",
     "memory_search", "memory_store", "update_user_profile", "document_search",
     "write_file", "read_file", "list_files", "exec_command",
     "list_schedules", "create_schedule", "remove_schedule",
+    "grep_files", "glob_files", "ask_user",
 }
 
 

@@ -8,8 +8,12 @@ from tools.builtin.update_profile import update_user_profile
 from tools.builtin.workspace_files import write_file, read_file, list_files
 from rag.store import rag_search
 from tools.builtin.exec_tool import exec_command
-from tools.builtin.spawn_tasks import spawn_tasks
+from tools.builtin.spawn_tasks import spawn_tasks, spawn_agent
 from tools.builtin.schedule_tools import list_schedules, create_schedule, remove_schedule
+from tools.builtin.web_fetch import web_fetch
+from tools.builtin.grep_files import grep_files
+from tools.builtin.glob_files import glob_files
+from tools.builtin.ask_user import ask_user
 from tools.result_utils import normalise_tool_result
 
 TOOL_HANDLERS: dict[str, callable] = {
@@ -25,9 +29,14 @@ TOOL_HANDLERS: dict[str, callable] = {
     "list_files": list_files,
     "exec_command": exec_command,
     "spawn_tasks": spawn_tasks,
+    "spawn_agent": spawn_agent,
     "list_schedules": list_schedules,
     "create_schedule": create_schedule,
     "remove_schedule": remove_schedule,
+    "web_fetch": web_fetch,
+    "grep_files": grep_files,
+    "glob_files": glob_files,
+    "ask_user": ask_user,
 }
 
 
