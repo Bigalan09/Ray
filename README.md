@@ -31,7 +31,7 @@ On first run Ray guides you through a short onboarding conversation to set up yo
 Browser :3000
     └─ ray-ui  (Bun static + /api/* proxy)
            └─ ray-api :8000  (FastAPI)
-                  ├─ OpenAI Responses API  (primary, gpt-5-nano default)
+                  ├─ OpenAI Responses API  (primary, gpt-5-mini default)
                   ├─ Optional: Azure OpenAI, Ollama
                   ├─ Agent loop: tool calls, multi-round, retries
                   ├─ Slash commands  /help /tool /task /skill /exec /file ...
@@ -42,13 +42,18 @@ Browser :3000
                   ├─ Webhooks + lifecycle hooks
                   └─ Auth, rate limiting, audit log
 
-ray-worker    background tasks + cron
-ray-redis     task queue + rate limiting
-ray-chromadb  vector memory
+ray-worker      background tasks + cron
+ray-redis       task queue + rate limiting
+ray-chromadb    vector memory
+ray-prometheus  metrics scraping
+ray-loki        log aggregation
+ray-promtail    log shipper (Docker socket)
+ray-grafana     dashboards (localhost:3001 / grafana.bigalan.dev)
 ```
 
-Five Docker services: `ray-ui`, `ray-api`, `ray-worker`, `ray-redis`, `ray-chromadb`.  
-Optional: `ray-ollama` for local model inference (uncomment in `docker-compose.yml`).
+**Core services**: `ray-ui`, `ray-api`, `ray-worker`, `ray-redis`, `ray-chromadb`.  
+**Observability**: `ray-prometheus`, `ray-loki`, `ray-promtail`, `ray-grafana` — bundled in `docker-compose.yml`.  
+**Optional**: `ray-ollama` for local model inference (uncomment in `docker-compose.yml`).
 
 ---
 
@@ -129,7 +134,7 @@ cp .env.example .env
 
 ### Models (`config/models.yaml`)
 
-Default model is `gpt-5-nano`. Add Azure OpenAI or Ollama providers here.
+Default model is `gpt-5-mini` (Azure OpenAI). Add or switch providers here — `gpt-5-nano` (OpenAI direct) and Ollama are also configured out of the box.
 
 ### Workspace (`workspace/`)
 

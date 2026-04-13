@@ -4,6 +4,16 @@ All notable changes to Ray are documented here.
 
 ## [Unreleased] — 2026-04-13
 
+### Added (latest)
+- **API key management UI** (`ApiKeyPanel.tsx`): Sidebar "API Key" panel (Configure section) for generating, rotating, and revoking the API key. Shows auth-enabled status badge, copy-to-clipboard for the generated key, and a one-click revoke with confirmation. Backed by `POST /api/auth/key`, `DELETE /api/auth/key`, `GET /api/auth/status`.
+- **`GET /exec/pending`** endpoint: Lists pending exec commands awaiting user approval. Backed by new `list_pending()` helper in `exec_pending.py`.
+
+### Fixed (latest)
+- **Exec approval output missing from chat** (issue #43): `approveExec()` discarded the `POST /api/exec/approve` response. Now dispatches `COMMAND_RESULT` with `data.content` so command output appears as an assistant message after clicking Allow.
+- **Memory search E2E contract** (issue #44): `full-coverage.spec.ts` called `GET /api/memory/search?q=` but the router only exposes `POST /memory/search`. All three call sites corrected to `POST` with `{ query, limit }` body.
+- **Auth status field name** (issue #45): `GET /api/auth/status` returns `auth_enabled`, not `enabled`. Test assertions and skip guards corrected.
+- **GHCR image tag case** (release workflow): `lower(github.repository_owner)` normalises the owner to lowercase so image tags like `ghcr.io/Bigalan09/ray-ui:v0.0.3` no longer fail with "repository name must be lowercase".
+
 ### Added
 - **Workspace file editors** (`WorkspacePanel.tsx`): Sidebar panel with three tabs — Soul, User, Identity — for editing `SOUL.md`, `USER.md`, and `IDENTITY.md` directly in the UI. Lazy-loads each file on first tab visit. Backed by existing `GET/PUT /api/identity/{soul,me,identity}` endpoints.
 - **Image attach button**: Dedicated camera button in the input bar opens a native file picker for images. The `<input type="file">` stays in the DOM so Playwright's `setInputFiles()` works in E2E tests. Multi-image parallel attach.
@@ -44,7 +54,7 @@ All notable changes to Ray are documented here.
 - **Central model capabilities registry**: `_MODEL_CAPS_BLACKLIST` dict in `api/llm/responses.py` replaces two duplicated `gpt-5-nano` hardcodes. Adding a new restricted model now requires one entry.
 - **`auto_title()` 10s timeout**: `_llm_title()` wraps the LLM call with `asyncio.wait_for(timeout=10.0)`. Slow/unavailable API calls are cancelled silently; title falls back to "New Chat".
 - **Ray reframed as general assistant**: Bootstrap onboarding (`workspace-template/BOOTSTRAP.md`) now asks about name, interests, and what the user cares about — not job/role. `SOUL.md` updated to remove work-specific guidance. Agent description and system prompt updated to drop "work assistant" framing.
-- **Default model**: Changed from `gpt-5.4-mini` to `gpt-5-nano` in `config/models.yaml`.
+- **Default model**: Changed from `gpt-5.4-mini` to `gpt-5-nano`, then to `gpt-5-mini` (Azure OpenAI) in `config/models.yaml`. Both `gpt-5-nano` (OpenAI direct) and `gpt-5-mini` (Azure) are defined; `gpt-5-mini` is the current default.
 - **Rate limiting defaults**: Raised to `1200` req/min, `200` burst (was 120/20) to avoid throttling normal local UI traffic.
 - **README**: Completely rewritten — one-liner install, feature status table, updated architecture, GHCR release section, Docker testing commands.
 

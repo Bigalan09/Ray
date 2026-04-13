@@ -41,6 +41,7 @@ const App: React.FC = () => {
   const [showApiKey, setShowApiKey] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [taskAlertCount, setTaskAlertCount] = useState(0);
+  const [userInfo, setUserInfo] = useState<{ name: string | null; company: string | null }>({ name: null, company: null });
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -63,6 +64,14 @@ const App: React.FC = () => {
 
   const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  // Fetch user info from bootstrap identity
+  useEffect(() => {
+    fetch("/api/identity/user-info")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) setUserInfo(d); })
+      .catch(() => {});
   }, []);
 
   // Telemetry on load
@@ -243,6 +252,7 @@ const App: React.FC = () => {
           onShowSkills={() => openPanel("skills", setShowSkills)}
           onShowSettings={() => openPanel("settings", setShowSettings)}
           onShowApiKey={() => openPanel("apikey", setShowApiKey)}
+          userInfo={userInfo}
         />
 
         {isEmpty ? (

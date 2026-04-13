@@ -25,6 +25,7 @@ interface ConversationListProps {
   onShowSettings: () => void;
   onShowApiKey?: () => void;
   taskAlertCount?: number;
+  userInfo?: { name: string | null; company: string | null };
 }
 
 function groupByDate(conversations: Conversation[]): Record<string, Conversation[]> {
@@ -101,6 +102,7 @@ export function ConversationList({
   onShowSettings,
   onShowApiKey,
   taskAlertCount = 0,
+  userInfo,
 }: ConversationListProps) {
   const [tasksExpanded, setTasksExpanded] = React.useState(true);
   const grouped = groupByDate(conversations);
@@ -281,13 +283,19 @@ export function ConversationList({
 
           {/* User footer */}
           <div className="px-3 py-2.5 border-t border-[var(--border)] flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-[var(--bg-surface)] flex items-center justify-center text-xs text-gray-400 font-semibold flex-shrink-0">
-              A
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm text-gray-300 truncate">Alan</div>
-              <div className="text-[11px] text-gray-600 truncate">Wealthify</div>
-            </div>
+            {userInfo?.name && (
+              <div className="w-7 h-7 rounded-full bg-[var(--bg-surface)] flex items-center justify-center text-xs text-gray-400 font-semibold flex-shrink-0">
+                {userInfo.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            {userInfo?.name && (
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-gray-300 truncate">{userInfo.name}</div>
+                {userInfo.company && (
+                  <div className="text-[11px] text-gray-600 truncate">{userInfo.company}</div>
+                )}
+              </div>
+            )}
             {(conversations.length > 0 || taskConversations.length > 0) && (
               <button
                 onClick={() => {
