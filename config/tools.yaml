@@ -186,16 +186,16 @@ tools:
 
   - name: exec_command
     description: >
-      Execute a system command. Only commands explicitly allowed by the
-      exec guardrails in guardrails.yaml can run. All commands require
-      user approval before execution. Use /exec list to see what is
-      permitted.
+      Execute an OS shell command (e.g. git, docker, npm). Only commands
+      explicitly listed in the exec guardrails allowlist can run, and all
+      require user approval before execution. Do NOT use this to call other
+      Ray tools (spawn_tasks, web_search, etc.) — call those tools directly.
     parameters:
       type: object
       properties:
         command:
           type: string
-          description: "The full command to execute (e.g. 'git status', 'npm test')"
+          description: "The OS shell command to run (e.g. 'git status', 'npm test'). Must be in the allowlist."
       required:
         - command
     enabled: true
