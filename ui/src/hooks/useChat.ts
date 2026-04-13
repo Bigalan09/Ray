@@ -17,6 +17,11 @@ function track(event: string, props?: Record<string, any>) {
   }).catch(() => {});
 }
 
+function formatStreamError(event: Extract<ReturnType<typeof classifyEvent>, { kind: "error" }>) {
+  const suffix = event.requestId ? ` (log: ${event.requestId})` : "";
+  return `${event.message}${suffix}`;
+}
+
 // ---------------------------------------------------------------------------
 // API helpers
 // ---------------------------------------------------------------------------
@@ -209,7 +214,13 @@ export function useChat() {
                 break;
               case "error":
                 track("chat_error", { message: event.message, retryable: event.retryable });
-                dispatch({ type: "STREAM_ERROR", message: event.message, retryable: event.retryable, retryMessages: msgHistory, retryConvId: convId });
+                dispatch({
+                  type: "STREAM_ERROR",
+                  message: formatStreamError(event),
+                  retryable: event.retryable,
+                  retryMessages: msgHistory,
+                  retryConvId: convId,
+                });
                 return;
               case "timing":
                 dispatch({ type: "STREAM_TIMING", durationS: event.durationS });

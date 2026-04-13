@@ -159,16 +159,19 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     }
 
     case "STREAM_ERROR": {
+      const errorMessage = `Error: ${action.message}`;
+      const lastMessage = state.messages[state.messages.length - 1];
+      const messages =
+        lastMessage?.role === "system" && lastMessage.content === errorMessage
+          ? state.messages
+          : [...state.messages, { role: "system", content: errorMessage }];
       return {
         ...state,
         phase: "idle",
         currentResponse: "",
         streamTools: [],
         bootstrapping: false,
-        messages: [
-          ...state.messages,
-          { role: "system", content: `Error: ${action.message}` },
-        ],
+        messages,
         retryContext: action.retryable
           ? { messages: action.retryMessages ?? [], convId: action.retryConvId ?? null }
           : null,

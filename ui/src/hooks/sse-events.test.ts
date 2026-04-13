@@ -118,6 +118,40 @@ describe("classifyEvent", () => {
     }
   });
 
+  test("classifies structured error metadata", () => {
+    const event = classifyEvent({
+      type: "error",
+      message: "Something went wrong",
+      retryable: false,
+      request_id: "req-123",
+      tool_name: "calculator",
+      round: 2,
+      provider: "openai",
+      model: "gpt-5-nano",
+    });
+    expect(event?.kind).toBe("error");
+    if (event?.kind === "error") {
+      expect(event.requestId).toBe("req-123");
+      expect(event.toolName).toBe("calculator");
+      expect(event.round).toBe(2);
+      expect(event.provider).toBe("openai");
+      expect(event.model).toBe("gpt-5-nano");
+    }
+  });
+
+  test("classifies legacy raw provider error payload", () => {
+    const event = classifyEvent({
+      error: "API Error",
+      message: "Provider exploded",
+      status: 500,
+    });
+    expect(event?.kind).toBe("error");
+    if (event?.kind === "error") {
+      expect(event.message).toBe("Provider exploded");
+      expect(event.retryable).toBe(false);
+    }
+  });
+
   // --- Content delta ---
 
   test("classifies content delta with text", () => {

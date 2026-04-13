@@ -10,6 +10,7 @@ from rag.store import rag_search
 from tools.builtin.exec_tool import exec_command
 from tools.builtin.spawn_tasks import spawn_tasks
 from tools.builtin.schedule_tools import list_schedules, create_schedule, remove_schedule
+from tools.result_utils import normalise_tool_result
 
 TOOL_HANDLERS: dict[str, callable] = {
     "web_search": web_search,
@@ -36,13 +37,16 @@ async def execute_tool(name: str, arguments: dict) -> dict:
     handler = TOOL_HANDLERS.get(name)
     if handler is not None:
         try:
-            return await handler(**arguments)
+            return normalise_tool_result(name, await handler(**arguments))
         except Exception as e:
             return {"error": str(e)}
 
     # Check MCP tools
     if name.startswith("mcp__"):
         from tools.mcp.manager import execute_mcp_tool
-        return await execute_mcp_tool(name, arguments)
+        try:
+            return normalise_tool_result(name, await execute_mcp_tool(name, arguments))
+        except Exception as e:
+            return {"error": str(e)}
 
     return {"error": f"Unknown tool: {name}"}

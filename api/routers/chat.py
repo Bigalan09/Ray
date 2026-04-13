@@ -18,7 +18,15 @@ from commands.builtin import _extract_user_name
 import structlog
 from llm.providers import resolve_model_provider, RetryableStreamError
 from observability.llm_logger import log_llm_request, log_llm_response, log_llm_retry, log_tool_call
-from observability.metrics import chat_requests_total, chat_tool_rounds_total, chat_response_duration
+from observability.context import get_request_id
+from observability.metrics import (
+    chat_requests_total,
+    chat_tool_rounds_total,
+    chat_response_duration,
+    chat_internal_errors_total,
+    chat_tool_exceptions_total,
+)
+from tools.result_utils import normalise_tool_result
 
 log = structlog.get_logger("ray.chat")
 router = APIRouter()
@@ -166,9 +174,105 @@ async def _generate_bootstrap_content(
     return accumulated
 
 
-def _sse_error(message: str, retryable: bool = False) -> dict:
+def _public_error_message(request_id: str | None = None) -> str:
+    if request_id:
+        return f"Request failed. Check the logs with request ID {request_id}."
+    return "Request failed. Check the application logs for details."
+
+
+def _sse_error(
+    message: str,
+    retryable: bool = False,
+    request_id: str | None = None,
+    tool_name: str | None = None,
+    round_number: int | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+) -> dict:
     """Build a structured SSE error event."""
-    return {"data": json.dumps({"type": "error", "message": message, "retryable": retryable})}
+    payload = {"type": "error", "message": message, "retryable": retryable}
+    if request_id:
+        payload["request_id"] = request_id
+    if tool_name:
+        payload["tool_name"] = tool_name
+    if round_number is not None:
+        payload["round"] = round_number
+    if provider:
+        payload["provider"] = provider
+    if model:
+        payload["model"] = model
+    return {"data": json.dumps(payload)}
+
+
+def _error_stream_response(
+    *,
+    message: str,
+    retryable: bool = False,
+    request_id: str | None = None,
+    tool_name: str | None = None,
+    round_number: int | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+) -> EventSourceResponse:
+    async def event_generator():
+        yield _sse_error(
+            message,
+            retryable=retryable,
+            request_id=request_id,
+            tool_name=tool_name,
+            round_number=round_number,
+            provider=provider,
+            model=model,
+        )
+        yield {"data": "[DONE]"}
+
+    return EventSourceResponse(event_generator())
+
+
+def _append_tool_call_fragment(tool_calls: list[dict], dtc: dict) -> None:
+    idx = dtc.get("index", 0)
+    if not isinstance(idx, int) or idx < 0:
+        raise ValueError(f"Invalid tool call index: {idx!r}")
+
+    while len(tool_calls) <= idx:
+        tool_calls.append({"id": "", "type": "function", "function": {"name": "", "arguments": ""}})
+
+    tool_id = dtc.get("id")
+    if tool_id is not None:
+        if not isinstance(tool_id, str):
+            raise TypeError(f"Invalid tool call id type: {type(tool_id).__name__}")
+        tool_calls[idx]["id"] = tool_id
+
+    fn = dtc.get("function", {})
+    if fn is None:
+        fn = {}
+    if not isinstance(fn, dict):
+        raise TypeError(f"Invalid tool call function type: {type(fn).__name__}")
+
+    name_fragment = fn.get("name")
+    if name_fragment is not None:
+        if not isinstance(name_fragment, str):
+            raise TypeError(f"Invalid tool name fragment type: {type(name_fragment).__name__}")
+        tool_calls[idx]["function"]["name"] += name_fragment
+
+    arguments_fragment = fn.get("arguments")
+    if arguments_fragment is not None:
+        if not isinstance(arguments_fragment, str):
+            raise TypeError(f"Invalid tool arguments fragment type: {type(arguments_fragment).__name__}")
+        tool_calls[idx]["function"]["arguments"] += arguments_fragment
+
+
+def _prepare_tool_result(tool_name: str, result: object) -> tuple[dict, str]:
+    normalised = normalise_tool_result(tool_name, result)
+    try:
+        return normalised, json.dumps(normalised)
+    except TypeError as exc:
+        fallback = {
+            "error": f"Tool '{tool_name}' returned a non-serialisable result.",
+            "detail": str(exc),
+            "result_type": type(result).__name__,
+        }
+        return fallback, json.dumps(fallback)
 
 
 async def _execute_tool(name: str, arguments: dict) -> dict:
@@ -179,130 +283,141 @@ async def _execute_tool(name: str, arguments: dict) -> dict:
 @router.post("/chat")
 async def chat(request: Request):
     """SSE streaming chat endpoint."""
-    payload = await request.json()
-    if "messages" not in payload or not isinstance(payload.get("messages"), list):
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=422, content={"detail": "messages is required and must be a list"})
-    messages = payload["messages"]
-    model = payload.get("model")
-    conversation_id = payload.get("conversation_id")
+    try:
+        payload = await request.json()
+        if "messages" not in payload or not isinstance(payload.get("messages"), list):
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=422, content={"detail": "messages is required and must be a list"})
+        messages = payload["messages"]
+        model = payload.get("model")
+        conversation_id = payload.get("conversation_id")
 
-    from hooks.engine import hook_engine
-    asyncio.create_task(hook_engine.emit("message_received", {
-        "conversation_id": conversation_id, "model": model,
-    }))
+        from hooks.engine import hook_engine
+        asyncio.create_task(hook_engine.emit("message_received", {
+            "conversation_id": conversation_id, "model": model,
+        }))
 
-    # Extract last user message text (handles multi-part content with images)
-    last_user_msg = ""
-    for m in reversed(messages):
-        if m.get("role") == "user":
-            content = m.get("content", "")
-            if isinstance(content, str):
-                last_user_msg = content
-            elif isinstance(content, list):
-                text_parts = [p.get("text", "") for p in content if p.get("type") == "text"]
-                last_user_msg = " ".join(text_parts)
-            break
+        # Extract last user message text (handles multi-part content with images)
+        last_user_msg = ""
+        for m in reversed(messages):
+            if m.get("role") == "user":
+                content = m.get("content", "")
+                if isinstance(content, str):
+                    last_user_msg = content
+                elif isinstance(content, list):
+                    text_parts = [p.get("text", "") for p in content if p.get("type") == "text"]
+                    last_user_msg = " ".join(text_parts)
+                break
 
-    # Slash command detection (before LLM routing)
-    from commands.registry import parse_command, execute_command
-    skip_bootstrap_injection = False
-    cmd = parse_command(last_user_msg)
-    explicit_agent: str | None = None
-    if cmd:
-        cmd_name, cmd_args = cmd
-        ctx = {"conversation_id": conversation_id, "model": model}
-        result = await execute_command(cmd_name, cmd_args, ctx)
+        # Slash command detection (before LLM routing)
+        from commands.registry import parse_command, execute_command
+        skip_bootstrap_injection = False
+        cmd = parse_command(last_user_msg)
+        explicit_agent: str | None = None
+        if cmd:
+            cmd_name, cmd_args = cmd
+            ctx = {"conversation_id": conversation_id, "model": model}
+            result = await execute_command(cmd_name, cmd_args, ctx)
 
-        # Redirect: send a different message through the LLM (used by skills and /bootstrap done)
-        if result.get("type") == "redirect":
-            redirect_msg = result["message"]
-            explicit_agent = result.get("agent")
-            # Replace last user message with the redirect prompt
-            messages = [m for m in messages[:-1] if m.get("role") == "user" or m.get("role") == "assistant"]
-            messages.append({"role": "user", "content": redirect_msg})
-            last_user_msg = redirect_msg
-            skip_bootstrap_injection = True
+            # Redirect: send a different message through the LLM (used by skills and /bootstrap done)
+            if result.get("type") == "redirect":
+                redirect_msg = result["message"]
+                explicit_agent = result.get("agent")
+                messages = [m for m in messages[:-1] if m.get("role") == "user" or m.get("role") == "assistant"]
+                messages.append({"role": "user", "content": redirect_msg})
+                last_user_msg = redirect_msg
+                skip_bootstrap_injection = True
 
-            # Bootstrap finalization: buffer LLM response, save files, return clean message
-            if result.get("bootstrap_finalize"):
-                models_config_bf = load_yaml("models.yaml")
-                default_model_bf = get_default_model(models_config_bf)
-                deployment_bf = model or default_model_bf
-                return await _finalize_bootstrap(messages, deployment_bf, models_config_bf, conversation_id)
+                if result.get("bootstrap_finalize"):
+                    models_config_bf = load_yaml("models.yaml")
+                    default_model_bf = get_default_model(models_config_bf)
+                    deployment_bf = model or default_model_bf
+                    return await _finalize_bootstrap(messages, deployment_bf, models_config_bf, conversation_id)
+            else:
+                if conversation_id:
+                    try:
+                        add_message(conversation_id, "assistant", result.get("content", ""),
+                                    metadata={"command": result.get("command")})
+                    except Exception:
+                        pass
 
-            # Fall through to LLM routing below
-        else:
-            if conversation_id:
-                try:
-                    add_message(conversation_id, "assistant", result.get("content", ""),
-                                metadata={"command": result.get("command")})
-                except Exception:
-                    pass
+                async def cmd_generator():
+                    yield {"data": json.dumps(result)}
+                    yield {"data": "[DONE]"}
+                return EventSourceResponse(cmd_generator())
 
-            async def cmd_generator():
-                yield {"data": json.dumps(result)}
-                yield {"data": "[DONE]"}
-            return EventSourceResponse(cmd_generator())
+        from bootstrap import is_bootstrapped
+        if not is_bootstrapped() and not skip_bootstrap_injection:
+            from agents.prompt_builder import build_system_prompt
+            bootstrap_prompt = build_system_prompt("", bootstrap_mode=True)
+            messages = [
+                {"role": "user", "content": bootstrap_prompt},
+                {"role": "assistant", "content": "Understood. I am in bootstrap mode and will stay on the onboarding conversation until /bootstrap done is called. I will not answer unrelated questions or perform other tasks."},
+            ] + messages
+            if messages and messages[-1].get("role") == "user":
+                original = messages[-1]["content"]
+                messages[-1] = {
+                    "role": "user",
+                    "content": (
+                        "[BOOTSTRAP MODE ACTIVE] You must continue the onboarding conversation. "
+                        "Do not answer unrelated questions. If the user goes off topic, "
+                        "acknowledge briefly and steer back to onboarding.\n\n"
+                        f"{original}"
+                    ),
+                }
 
-    # Bootstrap mode: inject onboarding prompt as conversational context.
-    # Skip injection for redirects (e.g. /bootstrap done generating files).
-    from bootstrap import is_bootstrapped
-    if not is_bootstrapped() and not skip_bootstrap_injection:
-        from agents.prompt_builder import build_system_prompt
-        bootstrap_prompt = build_system_prompt("", bootstrap_mode=True)
-        messages = [
-            {"role": "user", "content": bootstrap_prompt},
-            {"role": "assistant", "content": "Understood. I am in bootstrap mode and will stay on the onboarding conversation until /bootstrap done is called. I will not answer unrelated questions or perform other tasks."},
-        ] + messages
-        # Reinforce bootstrap in the last user message so the agent cannot drift
-        if messages and messages[-1].get("role") == "user":
-            original = messages[-1]["content"]
-            messages[-1] = {
-                "role": "user",
-                "content": (
-                    "[BOOTSTRAP MODE ACTIVE] You must continue the onboarding conversation. "
-                    "Do not answer unrelated questions. If the user goes off topic, "
-                    "acknowledge briefly and steer back to onboarding.\n\n"
-                    f"{original}"
-                ),
-            }
+        models_config = load_yaml("models.yaml")
+        default_model = get_default_model(models_config)
+        deployment = model or default_model
 
-    models_config = load_yaml("models.yaml")
-    default_model = get_default_model(models_config)
-    deployment = model or default_model
+        from memory.store import memory_search as _mem_search
+        from rag.store import rag_search as _rag_search
+        injected_memories: list[dict] = []
+        injected_documents: list[dict] = []
+        if last_user_msg:
+            try:
+                mem_result = await _mem_search(last_user_msg, limit=4)
+                injected_memories = mem_result.get("results", [])
+            except Exception:
+                pass
+            try:
+                doc_result = await _rag_search(last_user_msg, limit=5)
+                injected_documents = doc_result.get("results", [])
+            except Exception:
+                pass
 
-    # Proactive memory + document injection: query ChromaDB before building the
-    # system prompt so relevant facts and uploaded document chunks are in context.
-    from memory.store import memory_search as _mem_search
-    from rag.store import rag_search as _rag_search
-    injected_memories: list[dict] = []
-    injected_documents: list[dict] = []
-    if last_user_msg:
+        agent_name = route_message(last_user_msg, "general", explicit_agent=explicit_agent)
+        agent_ctx = build_agent_context(
+            agent_name,
+            injected_memories=injected_memories,
+            injected_documents=injected_documents,
+        )
+        temperature = payload.get("temperature")
+        effective_temp = temperature if temperature is not None else agent_ctx["temperature"]
+
+        return await _chat_direct(
+            deployment, agent_name, agent_ctx, effective_temp,
+            messages, conversation_id,
+        )
+    except Exception:
+        request_id = get_request_id() or None
+        log.error(
+            "Failed to initialise chat stream",
+            request_id=request_id,
+            exc_info=True,
+        )
         try:
-            mem_result = await _mem_search(last_user_msg, limit=4)
-            injected_memories = mem_result.get("results", [])
+            chat_internal_errors_total.labels(
+                agent="unknown",
+                provider="unknown",
+                stage="initialisation",
+            ).inc()
         except Exception:
             pass
-        try:
-            doc_result = await _rag_search(last_user_msg, limit=5)
-            injected_documents = doc_result.get("results", [])
-        except Exception:
-            pass
-
-    agent_name = route_message(last_user_msg, "general", explicit_agent=explicit_agent)
-    agent_ctx = build_agent_context(
-        agent_name,
-        injected_memories=injected_memories,
-        injected_documents=injected_documents,
-    )
-    temperature = payload.get("temperature")
-    effective_temp = temperature if temperature is not None else agent_ctx["temperature"]
-
-    return await _chat_direct(
-        deployment, agent_name, agent_ctx, effective_temp,
-        messages, conversation_id,
-    )
+        return _error_stream_response(
+            message=_public_error_message(request_id),
+            request_id=request_id,
+        )
 
 
 async def _chat_direct(
@@ -329,6 +444,7 @@ async def _chat_direct(
         pass
 
     MAX_TOOL_ROUNDS = 10
+    stream_failed = False
 
     async def _do_stream():
         """Inner generator with agent loop. Raises RetryableStreamError on 429/5xx.
@@ -336,8 +452,10 @@ async def _chat_direct(
         Loops: model inference -> tool execution -> model inference -> ...
         until the model produces a final text response or the round limit is hit.
         """
+        nonlocal stream_failed
         accumulated_response = ""
         conversation = list(messages)
+        request_id = get_request_id() or None
 
         for _round in range(MAX_TOOL_ROUNDS):
             tool_calls: list[dict] = []
@@ -377,16 +495,7 @@ async def _chat_direct(
                     delta_tool_calls = delta.get("tool_calls")
                     if delta_tool_calls:
                         for dtc in delta_tool_calls:
-                            idx = dtc.get("index", 0)
-                            while len(tool_calls) <= idx:
-                                tool_calls.append({"id": "", "type": "function", "function": {"name": "", "arguments": ""}})
-                            if dtc.get("id"):
-                                tool_calls[idx]["id"] = dtc["id"]
-                            fn = dtc.get("function", {})
-                            if fn.get("name"):
-                                tool_calls[idx]["function"]["name"] += fn["name"]
-                            if fn.get("arguments"):
-                                tool_calls[idx]["function"]["arguments"] += fn["arguments"]
+                            _append_tool_call_fragment(tool_calls, dtc)
 
                     content = delta.get("content")
                     if content:
@@ -404,9 +513,43 @@ async def _chat_direct(
                     # expects {"type": "error", ...}. Yield the normalised
                     # form and skip the raw event.
                     if parsed.get("error") and "type" not in parsed:
-                        yield _sse_error(parsed.get("message", parsed["error"]))
+                        yield _sse_error(
+                            parsed.get("message", parsed["error"]),
+                            request_id=request_id,
+                            round_number=_round + 1,
+                            provider=provider_name,
+                            model=resolved_model,
+                        )
                         continue
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, TypeError, ValueError) as exc:
+                    stream_failed = True
+                    log.warning(
+                        "Malformed tool-call fragment in chat stream",
+                        error=str(exc),
+                        round=_round + 1,
+                        provider=provider_name,
+                        model=resolved_model,
+                        request_id=request_id,
+                        exc_info=True,
+                    )
+                    try:
+                        chat_internal_errors_total.labels(
+                            agent=agent_name,
+                            provider=provider_name,
+                            stage="tool_call_fragment",
+                        ).inc()
+                    except Exception:
+                        pass
+                    yield _sse_error(
+                        _public_error_message(request_id),
+                        request_id=request_id,
+                        round_number=_round + 1,
+                        provider=provider_name,
+                        model=resolved_model,
+                    )
+                    yield {"data": "[DONE]"}
+                    return
+                except Exception:
                     pass
 
                 yield {"data": data}
@@ -443,13 +586,108 @@ async def _chat_direct(
             tool_messages = []
             for tc in tool_calls:
                 tc_name = tc["function"]["name"]
+                if not tc_name or not tc.get("id"):
+                    stream_failed = True
+                    invalid_name = tc_name or "unknown_tool"
+                    invalid_result = {
+                        "error": "Malformed tool call from model.",
+                        "missing_name": not bool(tc_name),
+                        "missing_call_id": not bool(tc.get("id")),
+                    }
+                    yield {"data": json.dumps({"ray_tool": {
+                        "name": invalid_name,
+                        "status": "error",
+                        "result": invalid_result,
+                    }})}
+                    try:
+                        chat_internal_errors_total.labels(
+                            agent=agent_name,
+                            provider=provider_name,
+                            stage="tool_call_validation",
+                        ).inc()
+                    except Exception:
+                        pass
+                    yield _sse_error(
+                        _public_error_message(request_id),
+                        request_id=request_id,
+                        tool_name=invalid_name,
+                        round_number=_round + 1,
+                        provider=provider_name,
+                        model=resolved_model,
+                    )
+                    yield {"data": "[DONE]"}
+                    return
                 try:
                     args = json.loads(tc["function"]["arguments"])
-                except json.JSONDecodeError:
-                    args = {}
+                except (TypeError, json.JSONDecodeError):
+                    stream_failed = True
+                    yield {"data": json.dumps({"ray_tool": {
+                        "name": tc_name,
+                        "status": "error",
+                        "result": {"error": "Malformed tool arguments from model."},
+                    }})}
+                    try:
+                        chat_internal_errors_total.labels(
+                            agent=agent_name,
+                            provider=provider_name,
+                            stage="tool_arguments",
+                        ).inc()
+                    except Exception:
+                        pass
+                    yield _sse_error(
+                        _public_error_message(request_id),
+                        request_id=request_id,
+                        tool_name=tc_name,
+                        round_number=_round + 1,
+                        provider=provider_name,
+                        model=resolved_model,
+                    )
+                    yield {"data": "[DONE]"}
+                    return
                 yield {"data": json.dumps({"ray_tool": {"name": tc_name, "status": "running", "arguments": args}})}
                 tc_start = _time.perf_counter()
-                result = await _execute_tool(tc_name, args)
+                try:
+                    result = await _execute_tool(tc_name, args)
+                    result, result_str = _prepare_tool_result(tc_name, result)
+                except Exception as exc:
+                    stream_failed = True
+                    tc_duration_ms = (_time.perf_counter() - tc_start) * 1000
+                    log.error(
+                        "Unexpected tool-call failure in chat stream",
+                        tool_name=tc_name,
+                        args=args,
+                        result_type=type(locals().get("result")).__name__ if "result" in locals() else None,
+                        round=_round + 1,
+                        provider=provider_name,
+                        model=resolved_model,
+                        conversation_id=conversation_id,
+                        request_id=request_id,
+                        exc_info=True,
+                    )
+                    try:
+                        chat_tool_exceptions_total.labels(agent=agent_name, tool=tc_name).inc()
+                        chat_internal_errors_total.labels(
+                            agent=agent_name,
+                            provider=provider_name,
+                            stage="tool_execution",
+                        ).inc()
+                    except Exception:
+                        pass
+                    yield {"data": json.dumps({"ray_tool": {
+                        "name": tc_name,
+                        "status": "error",
+                        "result": {"error": "Tool execution failed unexpectedly."},
+                    }})}
+                    yield _sse_error(
+                        _public_error_message(request_id),
+                        request_id=request_id,
+                        tool_name=tc_name,
+                        round_number=_round + 1,
+                        provider=provider_name,
+                        model=resolved_model,
+                    )
+                    yield {"data": "[DONE]"}
+                    return
                 tc_duration_ms = (_time.perf_counter() - tc_start) * 1000
 
                 # exec_command: wait for user approval, then use the real result
@@ -473,8 +711,7 @@ async def _chat_direct(
                     if pending:
                         await pending.resolved.wait()
                         if pending.approved and pending.exec_result:
-                            result = pending.exec_result
-                            result_str = json.dumps(result)
+                            result, result_str = _prepare_tool_result(tc_name, pending.exec_result)
                             yield {"data": json.dumps({"ray_tool": {
                                 "name": tc_name,
                                 "status": "success",
@@ -490,7 +727,6 @@ async def _chat_direct(
                     continue
 
                 has_error = "error" in result
-                result_str = json.dumps(result)
                 log_tool_call(
                     tool=tc_name,
                     args=args,
@@ -562,6 +798,13 @@ async def _chat_direct(
             try:
                 async for event in _do_stream():
                     yield event
+                if stream_failed:
+                    duration = _time.perf_counter() - t_start
+                    try:
+                        chat_response_duration.labels(agent=agent_name, outcome="error").observe(duration)
+                    except Exception:
+                        pass
+                    return
                 duration = _time.perf_counter() - t_start
                 try:
                     chat_response_duration.labels(agent=agent_name, outcome="success").observe(duration)
@@ -584,6 +827,7 @@ async def _chat_direct(
                 # Unexpected error: log via structlog so it appears in Loki, then
                 # surface as a graceful SSE error instead of a raw HTTP 500.
                 duration = _time.perf_counter() - t_start
+                request_id = get_request_id() or None
                 log.error(
                     "Unhandled exception in chat stream",
                     error=str(exc),
@@ -592,13 +836,25 @@ async def _chat_direct(
                     model=resolved_model,
                     attempt=attempt,
                     duration_s=round(duration, 3),
+                    request_id=request_id,
                     exc_info=True,
                 )
                 try:
+                    chat_internal_errors_total.labels(
+                        agent=agent_name,
+                        provider=provider_name,
+                        stage="event_generator",
+                    ).inc()
                     chat_response_duration.labels(agent=agent_name, outcome="error").observe(duration)
                 except Exception:
                     pass
-                yield _sse_error(f"Internal error: {type(exc).__name__}: {exc}", retryable=False)
+                yield _sse_error(
+                    _public_error_message(request_id),
+                    retryable=False,
+                    request_id=request_id,
+                    provider=provider_name,
+                    model=resolved_model,
+                )
                 yield {"data": "[DONE]"}
                 return
 

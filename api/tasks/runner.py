@@ -20,6 +20,7 @@ import time as _time
 import structlog
 log = structlog.get_logger("ray.tasks")
 from observability.llm_logger import log_tool_call
+from tools.result_utils import normalise_tool_result
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
@@ -177,7 +178,7 @@ async def _complete_non_streaming(
                 args = {}
             tc_name = tc["function"]["name"]
             tc_start = _time.perf_counter()
-            result = await execute_tool(tc_name, args)
+            result = normalise_tool_result(tc_name, await execute_tool(tc_name, args))
             tc_duration_ms = (_time.perf_counter() - tc_start) * 1000
             log_tool_call(
                 tool=tc_name,
