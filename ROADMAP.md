@@ -60,7 +60,7 @@ ray-chromadb (vector memory)
 - [x] YAML agent definitions (`config/agents.yaml`)
 - [x] System prompt builder (SOUL.md, USER.md, IDENTITY.md, MEMORY.md injected automatically)
 - [x] Multi-round tool call loop (up to 10 rounds)
-- [x] Built-in tools: calculator, get_current_time, web_search, memory_store, memory_search, read_file, write_file, list_files, exec_command
+- [x] Built-in tools (20): calculator, get_current_time, web_search, web_fetch, memory_store, memory_search, update_user_profile, document_search, read_file, write_file, list_files, grep_files, glob_files, exec_command, spawn_tasks, spawn_agent, ask_user, list_schedules, create_schedule, remove_schedule
 - [x] MCP stdio client with auto-restart on crash
 
 ### Identity & Bootstrap
@@ -108,8 +108,18 @@ ray-chromadb (vector memory)
 - [x] Audit log (`workspace/audit.db`)
 - [x] Exec guardrails (allowlist-only, sandboxed, user-approved)
 - [x] Hooks system (webhooks + lifecycle events + pre/post command hooks)
+- [x] Internal hooks system (in-process Python event listeners with glob pattern matching, 12 colon-separated event types)
 - [x] GHCR release pipeline (multi-arch, version tags)
 - [x] One-liner installer (`install.sh`)
+
+### Tools (20 built-in)
+- [x] Core: calculator, get_current_time, web_search, web_fetch
+- [x] Memory: memory_search, memory_store, update_user_profile, document_search
+- [x] Files: read_file, write_file, list_files, grep_files, glob_files
+- [x] Exec: exec_command (guardrailed, user-approved)
+- [x] Agent: spawn_tasks (parallel), spawn_agent (single focused delegation)
+- [x] Scheduling: list_schedules, create_schedule, remove_schedule
+- [x] Interaction: ask_user (structured questions with options)
 
 ### Testing
 - [x] API unit + integration tests (169+ tests; live OpenAI auto-skipped without key)

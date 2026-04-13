@@ -71,7 +71,7 @@ ray-grafana     dashboards (localhost:3001 / grafana.bigalan.dev)
 | Memory panel (browse/search/delete) | ✅ |
 | Background tasks + WebSocket updates | ✅ |
 | Cron-scheduled tasks + enable/disable | ✅ |
-| Webhooks + lifecycle hooks | ✅ |
+| Webhooks + internal hooks | ✅ event listeners + HTTP webhooks |
 | MCP tool servers (stdio, auto-restart) | ✅ |
 | Exec guardrails (allowlist + approval card) | ✅ |
 | Image upload + multimodal chat | ✅ paste, drag-drop, or file picker |
@@ -86,6 +86,10 @@ ray-grafana     dashboards (localhost:3001 / grafana.bigalan.dev)
 | Browser telemetry (RUM) | ✅ batched events → structlog + Prometheus |
 | Response timing display | ✅ shown in status bar |
 | Structured chat errors | ✅ sanitised SSE errors with request IDs |
+| URL fetching (`web_fetch`) | ✅ HTML-to-text conversion |
+| Workspace file search (`grep_files`, `glob_files`) | ✅ regex + glob patterns |
+| Interactive clarification (`ask_user`) | ✅ structured questions with options |
+| Sub-agent delegation (`spawn_agent`) | ✅ single-task focused delegation |
 
 ---
 
@@ -193,11 +197,17 @@ Every command requires an explicit Approve/Deny from the user before it runs. Co
 
 ---
 
-## Webhooks
+## Hooks
 
-Ray can notify external systems when events happen. Manage via the Webhooks panel in the sidebar or the `/hook` command.
+Ray has two hook systems:
 
-Supported events: `message_received`, `command_executed`, `tool_executing`, `tool_executed`, `exec_approved`, `exec_denied`, `task_started`, `task_completed`, `task_failed`, `session_created`, `session_deleted`, `response_persisted`.
+**Webhooks** — HTTP callbacks to external URLs when events fire. Manage via the Webhooks panel in the sidebar or the `/hook` command.
+
+Webhook events: `message_received`, `command_executed`, `tool_executing`, `tool_executed`, `exec_approved`, `exec_denied`, `task_started`, `task_completed`, `task_failed`, `session_created`, `session_deleted`, `response_persisted`.
+
+**Internal hooks** — In-process Python event listeners registered via `hook_engine.on(event, callback)`. Support glob patterns (e.g. `command:*`).
+
+Internal events: `gateway:startup`, `command`, `command:new`, `command:reset`, `command:stop`, `session:compact:before`, `session:compact:after`, `session:patch`, `agent:bootstrap`, `message:received`, `message:preprocessed`, `message:sent`.
 
 ---
 
@@ -230,7 +240,7 @@ Invoke with `/skill summarise <text>`.
 ## Testing
 
 ```bash
-# API unit + integration tests (169 tests, live OpenAI auto-skipped if no key)
+# API unit + integration tests (169+ tests, live OpenAI auto-skipped if no key)
 cd api && .venv/bin/python -m pytest tests/ -v
 
 # E2E against local dev stack
