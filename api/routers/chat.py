@@ -386,7 +386,6 @@ async def chat(request: Request):
                 injected_documents = doc_result.get("results", [])
             except Exception:
                 pass
-
         agent_name = route_message(last_user_msg, "general", explicit_agent=explicit_agent)
         agent_ctx = build_agent_context(
             agent_name,

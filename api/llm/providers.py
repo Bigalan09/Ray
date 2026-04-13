@@ -64,7 +64,6 @@ class OpenAIResponsesProvider(LLMProvider):
             tools=tools,
             stream=True,
         )
-
         try:
             stream = await _get_async_client().responses.create(**request_kwargs)
         except APIStatusError as exc:
