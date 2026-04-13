@@ -5,10 +5,18 @@ All notable changes to Ray are documented here.
 ## [Unreleased] — 2026-04-13
 
 ### Added (latest)
+- **Concurrency hardening — AsyncOpenAI native streaming**: `OpenAIResponsesProvider.stream_chat` rewritten to use `AsyncOpenAI` with `async for event in stream:`. Eliminates the sync SDK thread bridge (`queue.Queue` + `run_in_executor` + `asyncio.to_thread`) that consumed 2 thread pool threads per concurrent request. Under load (3+ concurrent requests in Docker with ~6 default pool threads) the pool exhausted and the Bun proxy returned plain-text "Internal Server Error" errors during multi-tool-call chains. Now: 0 thread pool threads for the Responses API path.
+- **LLM concurrency semaphore**: `asyncio.Semaphore(10)` in `chat.py` caps simultaneous `stream_chat()` calls. Provides backpressure so the 11th concurrent request queues in the event loop rather than spawning more threads.
+- **Client disconnect detection per tool-call round**: `await request.is_disconnected()` is checked before each tool-call round (round > 0). If the browser tab closes mid-chain the agent loop aborts cleanly instead of executing all remaining rounds against a dead connection.
+- **Per-round keepalive for tool chains**: `_KEEPALIVE` SSE event is yielded at the start of every tool-call round beyond the first, preventing reverse-proxy timeout on long multi-tool chains (previously only emitted during bootstrap finalization).
+- **Stream timeout**: `asyncio.timeout(300)` wraps `_do_stream()` in `event_generator`. Stalled or hung OpenAI connections now fail after 5 minutes with a structured SSE error instead of holding resources indefinitely.
+- **Explicit thread pool sizing**: `ThreadPoolExecutor(max_workers=20)` set at API startup, replacing the tiny default pool (`min(32, cpu_count+4)` ≈ 6 threads in Docker on 2 CPUs) used for remaining sync work (ChromaDB, SQLite).
 - **API key management UI** (`ApiKeyPanel.tsx`): Sidebar "API Key" panel (Configure section) for generating, rotating, and revoking the API key. Shows auth-enabled status badge, copy-to-clipboard for the generated key, and a one-click revoke with confirmation. Backed by `POST /api/auth/key`, `DELETE /api/auth/key`, `GET /api/auth/status`.
 - **`GET /exec/pending`** endpoint: Lists pending exec commands awaiting user approval. Backed by new `list_pending()` helper in `exec_pending.py`.
 
 ### Fixed (latest)
+- **Thread pool exhaustion → "Internal Server Error" during tool calls** (issue #48): Root cause was `OpenAIResponsesProvider.stream_chat` using a sync OpenAI SDK bridged to async via a thread queue. Fixed by replacing with native `AsyncOpenAI` streaming. See Added section above.
+- **Cron double-fire** (issue #49): Both `ray-api` and `ray-worker` called `start_scheduler()` at startup, reading the same `schedules.yaml`. Every cron job fired twice — once per container. Fixed by removing `start_scheduler()`/`stop_scheduler()` from the API lifespan. `ray-worker` is now the sole scheduler owner.
 - **Chat tool-call internal errors**: Tool-call fragments, MCP/tool result normalisation, and pre-stream setup failures now resolve to structured sanitised SSE error events with request IDs instead of raw `Internal Server Error` bubbles. The UI also collapses duplicate trailing error bubbles during retries.
 - **Exec approval output missing from chat** (issue #43): `approveExec()` discarded the `POST /api/exec/approve` response. Now dispatches `COMMAND_RESULT` with `data.content` so command output appears as an assistant message after clicking Allow.
 - **Memory search E2E contract** (issue #44): `full-coverage.spec.ts` called `GET /api/memory/search?q=` but the router only exposes `POST /memory/search`. All three call sites corrected to `POST` with `{ query, limit }` body.
