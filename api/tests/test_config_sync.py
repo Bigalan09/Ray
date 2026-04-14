@@ -131,9 +131,8 @@ def test_workspace_seeded_updates_changed_templates(tmp_path):
     (template / "TOOLS.md").write_text("v2 with new tools")
 
     with patch("bootstrap.settings") as ms, \
-         patch("bootstrap.Path") as mock_path:
+         patch("bootstrap._TEMPLATE_DIR", template):
         ms.workspace_dir = ws
-        mock_path.return_value = template
         from bootstrap import ensure_workspace_seeded
         ensure_workspace_seeded()
 
@@ -151,9 +150,8 @@ def test_workspace_seeded_preserves_user_edited_files(tmp_path):
     (ws / "SOUL.md").write_text("my custom soul")
 
     with patch("bootstrap.settings") as ms, \
-         patch("bootstrap.Path") as mock_path:
+         patch("bootstrap._TEMPLATE_DIR", template):
         ms.workspace_dir = ws
-        mock_path.return_value = template
         from bootstrap import ensure_workspace_seeded
         ensure_workspace_seeded()
 

@@ -31,9 +31,12 @@ async def lifespan(app: FastAPI):
     loop.set_default_executor(ThreadPoolExecutor(max_workers=20, thread_name_prefix="ray-io"))
 
     from bootstrap import ensure_workspace_seeded
-    ensure_workspace_seeded()
     from config_sync import ensure_config_synced
-    ensure_config_synced()
+    try:
+        ensure_workspace_seeded()
+        ensure_config_synced()
+    except Exception as e:
+        print(f"Workspace/config sync warning: {e}")
     try:
         await start_mcp_servers()
     except Exception as e:
