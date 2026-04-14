@@ -47,8 +47,9 @@ def _merge_yaml(upstream_path: Path, local_path: Path, preserve_keys: list[str])
 
 def _sync_file(upstream_file: Path, local_file: Path, filename: str) -> str | None:
     if not local_file.exists():
-        copy_if_changed(upstream_file, local_file)
-        return "added (new from upstream)"
+        local_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(upstream_file, local_file)
+        return "added"
 
     if file_hash(upstream_file) == file_hash(local_file):
         return None

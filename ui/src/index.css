@@ -21,6 +21,15 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Prevent iOS Safari auto-zoom on focus: inputs < 16px trigger zoom. */
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 /* Global focus-visible ring for keyboard navigation */
 :focus-visible {
   outline: 2px solid var(--accent);

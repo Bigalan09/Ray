@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 _bootstrapped_cache: bool | None = None
 
-_TEMPLATE_DIR_NAME = "workspace-template"
+_TEMPLATE_DIR = Path("/workspace-template")
 
 # Files the user edits after bootstrap — never overwrite from template.
 _USER_EDITED_FILES = {"SOUL.md", "USER.md", "IDENTITY.md", "MEMORY.md"}
@@ -32,20 +32,18 @@ def ensure_workspace_seeded() -> None:
     ws.mkdir(parents=True, exist_ok=True)
     (ws / "memory").mkdir(exist_ok=True)
 
-    template_dir = Path("/workspace-template")
-    if not template_dir.exists():
+    if not _TEMPLATE_DIR.exists():
         return
 
-    for src in template_dir.rglob("*"):
+    for src in _TEMPLATE_DIR.rglob("*"):
         if not src.is_file():
             continue
-        rel = src.relative_to(template_dir)
+        rel = src.relative_to(_TEMPLATE_DIR)
         dest = ws / rel
-        is_new = not dest.exists()
-        if not is_new and rel.name in _USER_EDITED_FILES:
+        if dest.exists() and rel.name in _USER_EDITED_FILES:
             continue
-        if copy_if_changed(src, dest) and not is_new:
-            log.info("Workspace template updated: %s", rel)
+        if copy_if_changed(src, dest):
+            log.info("Workspace template: %s", rel)
 
 
 def is_bootstrapped() -> bool:
@@ -91,8 +89,6 @@ def reset_bootstrap() -> None:
     identity = ws / "IDENTITY.md"
     if identity.exists():
         identity.unlink()
-    template_dir = Path("/workspace-template")
-    src = template_dir / "BOOTSTRAP.md"
-    dest = ws / "BOOTSTRAP.md"
+    src = _TEMPLATE_DIR / "BOOTSTRAP.md"
     if src.exists():
-        shutil.copy2(src, dest)
+        shutil.copy2(src, ws / "BOOTSTRAP.md")
