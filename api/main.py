@@ -33,9 +33,7 @@ async def lifespan(app: FastAPI):
     from bootstrap import ensure_workspace_seeded
     ensure_workspace_seeded()
     from config_sync import ensure_config_synced
-    synced = ensure_config_synced()
-    if synced:
-        print(f"Config sync: updated {len(synced)} file(s) — {', '.join(synced.keys())}")
+    ensure_config_synced()
     try:
         await start_mcp_servers()
     except Exception as e:
