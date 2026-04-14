@@ -114,7 +114,7 @@ The production stack lives at `~/deployments/ray/` and builds directly from this
 cd ~/deployments/ray && docker compose up --build -d ray-ui ray-api ray-worker
 ```
 
-The deployment compose mounts `~/deployments/ray/config/` and `~/deployments/ray/workspace/` as volumes (separate from `./config/` and `./workspace/` in the dev repo). Changes to `config/` in this repo are **not** automatically reflected in the deployment.
+The deployment compose mounts `~/deployments/ray/config/` and `~/deployments/ray/workspace/` as volumes (separate from `./config/` and `./workspace/` in the dev repo). Config is automatically synced from repo source on container startup via `config_sync.py` — the repo's `config/` is mounted read-only at `/config-upstream`, and any new or changed files are merged into the deployment's `/config`. Deployment-specific overrides (e.g. `default_model` in `models.yaml`) are preserved during sync. Manual sync is available via `POST /api/admin/config-sync`.
 
 ## Configuration
 

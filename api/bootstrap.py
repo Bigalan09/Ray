@@ -3,23 +3,41 @@
 On first run, template files from workspace-template/ are copied into
 workspace/ if it is empty. Bootstrap is complete when workspace/IDENTITY.md
 exists. After bootstrap, workspace/BOOTSTRAP.md is deleted.
+
+On every startup, config files are synced from /config-upstream (when
+available) so deployment config stays in sync with repo defaults.
 """
 from __future__ import annotations
 
+import hashlib
+import logging
 import shutil
 from pathlib import Path
 
 from config import settings
 
+log = logging.getLogger(__name__)
 
 _bootstrapped_cache: bool | None = None
 
 # Template dir ships with the repo; workspace/ is personal state
 _TEMPLATE_DIR_NAME = "workspace-template"
 
+# Workspace files that are user-edited after bootstrap and should NOT
+# be overwritten by template updates.
+_USER_EDITED_FILES = {"SOUL.md", "USER.md", "IDENTITY.md", "MEMORY.md"}
+
+
+def _file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
 
 def ensure_workspace_seeded() -> None:
-    """Copy template files into workspace/ if they do not exist yet."""
+    """Copy template files into workspace/ if they do not exist yet.
+
+    For files that already exist, update them if the template has changed
+    — unless they are user-edited identity files.
+    """
     ws = settings.workspace_dir
     ws.mkdir(parents=True, exist_ok=True)
     (ws / "memory").mkdir(exist_ok=True)
@@ -35,6 +53,11 @@ def ensure_workspace_seeded() -> None:
             if not dest.exists():
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src, dest)
+            elif rel.name not in _USER_EDITED_FILES:
+                # Update non-identity files if template has changed
+                if _file_hash(src) != _file_hash(dest):
+                    shutil.copy2(src, dest)
+                    log.info("Workspace template updated: %s", rel)
 
 
 def is_bootstrapped() -> bool:

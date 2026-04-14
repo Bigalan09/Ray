@@ -138,3 +138,13 @@ async def factory_reset(body: FactoryResetRequest):
 
     log.info("Factory reset completed: %s", results)
     return {"status": "reset_complete", "details": results}
+
+
+@router.post("/admin/config-sync")
+async def config_sync():
+    """Sync config files from upstream source. Returns which files were updated."""
+    from config_sync import ensure_config_synced
+    synced = ensure_config_synced()
+    if not synced:
+        return {"status": "up_to_date", "files": {}}
+    return {"status": "synced", "files": synced}
