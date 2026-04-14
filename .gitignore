@@ -28,6 +28,9 @@ workspace-backup*/
 *.swp
 *.swo
 
+# Claude Code local settings and hooks (machine-specific)
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
